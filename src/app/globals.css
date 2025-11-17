@@ -83,7 +83,7 @@
   }
   
   .report-header .right {
-    @apply ml-auto flex gap-2 flex-wrap;
+    @apply ml-auto flex gap-2 flex-wrap items-center;
   }
   
   .badge {
@@ -94,12 +94,20 @@
     @apply flex flex-wrap gap-4 bg-primary/10 p-3 px-5 border-b;
   }
 
-  .meta-bar .item {
-    @apply flex items-center gap-2 text-sm;
+  .meta-bar .logo-col {
+      @apply w-full md:w-32;
   }
-
+  .meta-bar .details-col {
+      @apply flex-1 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2;
+  }
+  .meta-bar .item {
+    @apply flex items-start gap-2 text-sm;
+  }
   .meta-bar .label {
-    @apply font-semibold text-slate-700;
+    @apply font-semibold text-slate-700 whitespace-nowrap;
+  }
+  .meta-bar .value-col {
+    @apply flex-1;
   }
 
   .report-section {

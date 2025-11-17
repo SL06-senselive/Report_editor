@@ -1,15 +1,27 @@
+import { DateRange } from "react-day-picker";
+
 export type ReportState = {
   [key: string]: any;
 };
+
+const initialFromDate = new Date();
+const initialToDate = new Date();
+initialFromDate.setMonth(initialFromDate.getMonth() - 1);
+
 
 export const initialReportState: ReportState = {
   // Header
   title: 'Energy Bill Audit Report',
   subTitle: 'Cost audit & verification of electricity bills (MSEDCL & Open Access)',
-  clientLocation: '📍 Client Location: Nagpur',
-  period: '🗓️ Period: Jan 2023 – Jun 2025',
+  clientName: 'Client Name',
+  clientLocation: 'Nagpur',
+  period: {
+    from: initialFromDate,
+    to: initialToDate,
+  } as DateRange,
   
   // Meta
+  logo: null,
   consumer: 'Client Site / Name',
   reportType: 'Audit & Trend Analysis',
   generatedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),

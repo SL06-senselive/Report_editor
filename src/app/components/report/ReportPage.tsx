@@ -27,7 +27,7 @@ const componentMap = {
   custom: CustomSection,
 };
 
-const initialSections: { id: string; component: string; props: any, isDeletable: boolean }[] = [
+const initialSections: { id: string; component: string; props: any; isDeletable: boolean }[] = [
   { id: 'summary', component: 'summary', props: {}, isDeletable: true },
   { id: 'partA', component: 'partA', props: {}, isDeletable: true },
   { id: 'partB', component: 'partB', props: {}, isDeletable: true },
@@ -126,7 +126,6 @@ export default function ReportPage() {
           return (
             <div 
               key={section.id}
-              id={section.id}
               draggable
               onDragStart={(e) => handleDragStart(e, section.id)}
               onDragOver={handleDragOver}

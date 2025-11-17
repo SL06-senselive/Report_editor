@@ -28,10 +28,10 @@ const componentMap = {
 };
 
 const initialSections = [
-  { id: 'conclusion', component: 'conclusion', props: {} },
   { id: 'summary', component: 'summary', props: {} },
   { id: 'partA', component: 'partA', props: {} },
   { id: 'partB', component: 'partB', props: {} },
+  { id: 'conclusion', component: 'conclusion', props: {} },
 ];
 
 export default function ReportPage() {
@@ -76,13 +76,10 @@ export default function ReportPage() {
   };
 
   const deleteSection = (idToDelete: string) => {
-    if (['conclusion', 'summary', 'partA', 'partB'].includes(idToDelete)) {
-      alert("Default sections cannot be deleted.");
-      return;
-    }
-    if (window.confirm('Are you sure you want to delete this section?')) {
+    if (window.confirm('Are you sure you want to delete this section? This action cannot be undone.')) {
       setSections(sections => sections.filter(s => s.id !== idToDelete));
-      // Optionally clean up reportData, though not strictly necessary if keys are unique
+      // Note: Data associated with the section remains in reportData but becomes orphaned.
+      // This is generally fine, but for a production app, you might want to clean it up.
     }
   };
 
@@ -123,7 +120,6 @@ export default function ReportPage() {
         
         {sections.map(section => {
           const Component = componentMap[section.component as keyof typeof componentMap];
-          const isCustom = section.component === 'custom';
           
           return (
             <div 
@@ -139,16 +135,15 @@ export default function ReportPage() {
                 <GripVertical size={20} />
               </div>
 
-              {isCustom && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="absolute top-4 right-12 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => deleteSection(section.id)}
-                >
-                    <Trash2 size={16}/>
-                </Button>
-              )}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
+                onClick={() => deleteSection(section.id)}
+                aria-label="Delete section"
+              >
+                  <Trash2 size={16}/>
+              </Button>
 
               <Component 
                 data={reportData} 
@@ -159,7 +154,7 @@ export default function ReportPage() {
           )
         })}
 
-        <div className="p-5 flex justify-center">
+        <div className="p-5 flex justify-center border-t">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full md:w-auto">
@@ -172,7 +167,7 @@ export default function ReportPage() {
                   Image with Text Overlay
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => addSection('separate')}>
-                  Separate Image and Text
+                  Flexible Image & Text
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

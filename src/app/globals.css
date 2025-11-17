@@ -99,12 +99,12 @@
   .report-section {
     @apply p-5 border-b;
   }
-  .report-section:last-child {
+  .report-section:last-of-type {
     @apply border-b-0;
   }
 
   .draggable-section .drag-handle {
-    @apply absolute top-1/2 -translate-y-1/2 -left-1 w-8 h-8 flex items-center justify-center text-muted-foreground/50 cursor-move opacity-0 group-hover/section:opacity-100 transition-opacity;
+    @apply absolute top-1/2 -translate-y-1/2 -left-2 w-8 h-8 flex items-center justify-center text-muted-foreground/50 cursor-move opacity-0 group-hover/section:opacity-100 transition-opacity z-10;
   }
 
   .report-section h2 {
@@ -200,8 +200,9 @@
     @apply outline-none w-full bg-transparent;
   }
 
+  .editable-field[contenteditable=true]:focus,
   .editable-field:focus {
-    @apply bg-yellow-50 ring-1 ring-yellow-400 rounded-md;
+    @apply bg-yellow-50/80 ring-2 ring-yellow-400 rounded-sm;
   }
 
   .tag {

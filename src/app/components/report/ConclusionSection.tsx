@@ -7,8 +7,6 @@ import EditableField from './EditableField';
 type ConclusionSectionProps = {
   data: ReportState;
   updateField: (id: string, value: string) => void;
-  getReportTextContent: () => string;
-  getChartDescriptions: () => string;
 };
 
 export default function ConclusionSection({ data, updateField }: ConclusionSectionProps) {

@@ -103,6 +103,10 @@
     @apply border-b-0;
   }
 
+  .draggable-section .drag-handle {
+    @apply absolute top-1/2 -translate-y-1/2 -left-1 w-8 h-8 flex items-center justify-center text-muted-foreground/50 cursor-move opacity-0 group-hover/section:opacity-100 transition-opacity;
+  }
+
   .report-section h2 {
     @apply text-lg font-bold text-primary mb-3 flex items-center gap-2;
   }
@@ -220,7 +224,7 @@
     max-width: 100%;
     border: none;
   }
-  .action-bar, .chart-tools, .ai-insights-btn {
+  .action-bar, .chart-tools, .ai-insights-btn, .drag-handle {
     display: none !important;
   }
   .report-section {

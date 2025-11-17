@@ -15,10 +15,6 @@ export const initialReportState: ReportState = {
   generatedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
   preparedBy: 'Mrutyunjay Chinchole',
 
-  // Image Composer
-  'composer-image': null,
-  'composer-overlays': [],
-
   // Conclusion
   conclusion: 'Write final conclusions here… Use <span class="text-green-600 font-semibold">green</span> for positives and <span class="text-red-600 font-semibold">red</span> for issues.',
 

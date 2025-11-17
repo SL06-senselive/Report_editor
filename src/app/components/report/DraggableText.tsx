@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 export type Overlay = {
@@ -19,14 +19,18 @@ type DraggableTextProps = {
   isSelected: boolean;
   onSelect: () => void;
   onDrag: (dx: number, dy: number) => void;
+  containerRef: React.RefObject<HTMLDivElement>;
 };
 
-export default function DraggableText({ overlay, isSelected, onSelect, onDrag }: DraggableTextProps) {
+export default function DraggableText({ overlay, isSelected, onSelect, onDrag, containerRef }: DraggableTextProps) {
   const ref = useRef<HTMLDivElement>(null);
   const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0 });
 
   const onMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent container from deselecting
+    e.stopPropagation(); 
+    if (!containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
     dragInfo.current = { isDragging: true, startX: e.clientX, startY: e.clientY };
     onSelect();
     

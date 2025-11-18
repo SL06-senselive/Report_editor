@@ -16,8 +16,8 @@
     --secondary-foreground: 220 13% 18%;
     --muted: 220 9% 90%;
     --muted-foreground: 220 9% 45%;
-    --accent: 220 13% 91%;
-    --accent-foreground: 220 13% 18%;
+    --accent: 14 99% 65%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 7 80% 57%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 88%;
@@ -220,10 +220,16 @@
   }
 
   .tag {
-    @apply inline-flex items-center gap-1.5 bg-primary/10 text-primary-foreground/80 border border-primary-foreground/30 rounded-full px-2.5 py-1 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 bg-primary/10 text-primary-foreground border border-primary-foreground/30 rounded-full px-2.5 py-1 text-xs font-medium;
   }
   .tag .editable-field {
     @apply placeholder:text-primary-foreground/50;
+  }
+  .tag:has(button) {
+    @apply p-0;
+  }
+  .tag button {
+    @apply text-primary-foreground;
   }
 
   .report-footer {

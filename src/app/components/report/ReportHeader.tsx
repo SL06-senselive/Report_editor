@@ -32,7 +32,7 @@ export default function ReportHeader({ data, updateField }: ReportHeaderProps) {
 
   return (
     <div className="report-header">
-      <div className="flex items-center gap-4 flex-1">
+      <div className="flex items-center gap-4">
         <ImageSlot
           id="headerLogo"
           src={data.headerLogo}

@@ -60,11 +60,21 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     }
   };
 
-  const handleUploadClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only trigger file input if not clicking on a button inside
+    if (e.target instanceof HTMLElement && e.target.closest('button')) {
+      return;
+    }
     fileInputRef.current?.click();
   };
 
-  const handleClear = () => {
+  const handleUploadClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
+  const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     onUpload(id, null);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -73,10 +83,11 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
 
   return (
     <div
-      className={cn("chart-slot", className, isDragging && 'drag-over')}
+      className={cn("chart-slot", className, isDragging && 'drag-over', !src && 'cursor-pointer')}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onClick={handleClick}
     >
       <input
         type="file"

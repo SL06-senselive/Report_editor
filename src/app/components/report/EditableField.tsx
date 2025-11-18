@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, forwardRef } from "react";
 
 type EditableFieldProps = {
   id: string;
@@ -31,7 +31,10 @@ const EditableField: React.FC<EditableFieldProps> = ({
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
     if (disabled) return;
     const newValue = e.currentTarget.innerHTML;
-    onChange(id, newValue);
+    // Prevent infinite loop by checking if value is different
+    if (value !== newValue) {
+      onChange(id, newValue);
+    }
   };
   
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -49,10 +52,10 @@ const EditableField: React.FC<EditableFieldProps> = ({
   
   // This is needed to prevent cursor jumping in contentEditable elements
   useEffect(() => {
-      if (ref.current && isContentEditable) {
-        if (ref.current.innerHTML !== value) {
-            ref.current.innerHTML = value;
-        }
+    if (ref.current && isContentEditable) {
+      if (ref.current.innerHTML !== value) {
+          ref.current.innerHTML = value;
+      }
     }
   }, [value, isContentEditable]);
 
@@ -72,7 +75,9 @@ const EditableField: React.FC<EditableFieldProps> = ({
       onChange(id, newValue);
       // Move cursor after pasted text
       setTimeout(() => {
-        ref.current.selectionStart = ref.current.selectionEnd = start + text.length;
+        if (ref.current) {
+            ref.current.selectionStart = ref.current.selectionEnd = start + text.length;
+        }
       }, 0);
     }
   };

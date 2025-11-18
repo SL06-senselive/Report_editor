@@ -34,22 +34,22 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
     const originalBackgroundColor = reportContainer.style.backgroundColor;
     reportContainer.style.backgroundColor = 'white';
 
-    // Add a class to the container to hide elements during PDF generation
     reportContainer.classList.add('printing-pdf');
     
-    // Replace textareas with divs for rendering
     const textareas = reportContainer.querySelectorAll('textarea');
     const originalTextareas: { parent: ParentNode; nextSibling: Node | null; textarea: HTMLTextAreaElement }[] = [];
     textareas.forEach(textarea => {
       if (textarea.style.display === 'none') return;
       const div = document.createElement('div');
-      div.innerText = textarea.value;
-      div.style.whiteSpace = 'pre-wrap';
-      div.style.wordWrap = 'break-word';
-      div.style.width = `${textarea.clientWidth}px`;
-      div.style.minHeight = `${textarea.clientHeight}px`;
+      // Use innerText to respect newlines, but use styling to ensure wrapping
+      div.innerText = textarea.value; 
+      div.style.whiteSpace = 'pre-wrap'; // respects newlines and spaces
+      div.style.wordBreak = 'break-word'; // breaks long words
       div.className = textarea.className;
       div.classList.add('printable-div');
+      // Ensure the div mimics the textarea's dimensions to help with layout
+      div.style.width = `${textarea.offsetWidth}px`;
+      div.style.minHeight = `${textarea.offsetHeight}px`;
       originalTextareas.push({ parent: textarea.parentNode!, nextSibling: textarea.nextSibling, textarea });
       textarea.parentNode!.replaceChild(div, textarea);
     });
@@ -63,35 +63,51 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const sections = reportContainer.querySelectorAll<HTMLElement>('.report-header, .meta-bar, .report-section');
-      let yOffset = 10; // Start with a margin
       const pageMargin = 10;
+      
+      const canvas = await html2canvas(reportContainer, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          windowWidth: reportContainer.scrollWidth,
+          windowHeight: reportContainer.scrollHeight,
+      });
 
-      for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
-        
-        const canvas = await html2canvas(section, {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            windowWidth: section.scrollWidth,
-            windowHeight: section.scrollHeight,
-        });
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
 
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / (pdfWidth - (pageMargin * 2));
-        const imgHeightInPdf = imgHeight / ratio;
+      const ratio = imgWidth / pdfWidth;
+      const totalPdfHeight = imgHeight / ratio;
+      const pageContentHeight = pdfHeight - (pageMargin * 2);
 
-        if (yOffset + imgHeightInPdf > pdfHeight - pageMargin) {
+      let yOffset = 0;
+      let pageNum = 1;
+
+      while (yOffset < totalPdfHeight) {
+        if (pageNum > 1) {
           pdf.addPage();
-          yOffset = pageMargin; // Reset y-offset for new page
+        }
+        
+        // Calculate the portion of the canvas to draw
+        const sourceY = yOffset * ratio;
+        const sourceHeight = Math.min((pageContentHeight * ratio), (imgHeight - sourceY));
+        
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = imgWidth;
+        tempCanvas.height = sourceHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (tempCtx) {
+            tempCtx.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
+            const pageImgData = tempCanvas.toDataURL('image/png');
+            const pageImgHeight = tempCanvas.height / ratio;
+
+            pdf.addImage(pageImgData, 'PNG', 0, pageMargin, pdfWidth, pageImgHeight);
         }
 
-        pdf.addImage(imgData, 'PNG', pageMargin, yOffset, pdfWidth - (pageMargin * 2), imgHeightInPdf);
-        yOffset += imgHeightInPdf + 5; // Add a small gap between sections
+        yOffset += pageContentHeight;
+        pageNum++;
       }
       
       pdf.save('energy-bill-audit-report.pdf');
@@ -112,13 +128,15 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       // Restore the view
       reportContainer.classList.remove('printing-pdf');
       
-      // Restore textareas
-      reportContainer.querySelectorAll('.printable-div').forEach(div => div.remove());
+      reportContainer.querySelectorAll('.printable-div').forEach(div => {
+        if (div.parentNode) {
+            div.parentNode.removeChild(div);
+        }
+      });
       originalTextareas.forEach(({ parent, nextSibling, textarea }) => {
         parent.insertBefore(textarea, nextSibling);
       });
       
-      // Restore original background color
       reportContainer.style.backgroundColor = originalBackgroundColor;
     }
   };

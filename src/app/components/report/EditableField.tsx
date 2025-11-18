@@ -28,7 +28,8 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
     if (disabled) return;
-    onChange(id, e.currentTarget.innerHTML);
+    const newValue = type === 'richtext' ? e.currentTarget.innerHTML : e.currentTarget.innerText;
+    onChange(id, newValue);
   };
   
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -46,10 +47,12 @@ const EditableField: React.FC<EditableFieldProps> = ({
   
   // This is needed to prevent cursor jumping in contentEditable elements
   useEffect(() => {
-    if (ref.current && type !== 'textarea' && type !== 'text' && ref.current.innerHTML !== value) {
-      ref.current.innerHTML = value;
+      if (ref.current && (type === 'richtext' || (type === 'text' && tag !== 'div')) ) {
+        if (ref.current.innerHTML !== value) {
+            ref.current.innerHTML = value;
+        }
     }
-  }, [value, type]);
+  }, [value, type, tag]);
 
 
   // Handle paste as plain text
@@ -57,8 +60,9 @@ const EditableField: React.FC<EditableFieldProps> = ({
     if (disabled) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    if (type === 'richtext' || (type === 'text' && tag !== 'div')) {
-      document.execCommand("insertText", false, text);
+
+    if (ref.current && ref.current.isContentEditable) {
+        document.execCommand("insertText", false, text);
     } else if (ref.current) {
       const start = ref.current.selectionStart;
       const end = ref.current.selectionEnd;
@@ -71,7 +75,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
     }
   };
 
-  if (type === 'text' && tag !== 'div') {
+  if (type === 'richtext' || (type === 'text' && tag !== 'div')) {
       const Component = tag;
       return (
         <Component
@@ -83,22 +87,6 @@ const EditableField: React.FC<EditableFieldProps> = ({
           className={cn("editable-field", disabled && "cursor-not-allowed", className)}
           dangerouslySetInnerHTML={{ __html: value }}
         />
-    );
-  }
-
-
-  if (type === "richtext") {
-    const Component = tag;
-    return (
-      <Component
-        ref={ref}
-        contentEditable={!disabled}
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onPaste={handlePaste}
-        className={cn("editable-field", disabled && "cursor-not-allowed", className)}
-        dangerouslySetInnerHTML={{ __html: value }}
-      />
     );
   }
 

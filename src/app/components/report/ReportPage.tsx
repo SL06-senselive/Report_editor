@@ -5,37 +5,33 @@ import { initialReportState, ReportState } from '@/lib/report-data';
 import ReportHeader from './ReportHeader';
 import MetaBar from './MetaBar';
 import ActionBar from './ActionBar';
-import SummarySection from './SummarySection';
-import PartASection from './PartASection';
-import PartBSection from './PartBSection';
 import ConclusionSection from './ConclusionSection';
 import { PlusCircle, GripVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import CustomSection from './CustomSection';
 
 const componentMap = {
   conclusion: ConclusionSection,
-  summary: SummarySection,
-  partA: PartASection,
-  partB: PartBSection,
   custom: CustomSection,
 };
 
+const createNewSection = (id: string) => ({
+  id: id,
+  component: 'custom',
+  props: { id: id, layout: 'separate' }, // Defaulting to the flexible 'separate' layout
+  isDeletable: true,
+});
+
 const initialSections: { id: string; component: string; props: any; isDeletable: boolean }[] = [
-  { id: 'summary', component: 'summary', props: {}, isDeletable: true },
-  { id: 'partA', component: 'partA', props: {}, isDeletable: true },
-  { id: 'partB', component: 'partB', props: {}, isDeletable: true },
-  { id: 'conclusion', component: 'conclusion', props: {}, isDeletable: true },
+  createNewSection('custom-initial')
 ];
 
 export default function ReportPage() {
-  const [reportData, setReportData] = useState<ReportState>(initialReportState);
+  const [reportData, setReportData] = useState<ReportState>(() => ({
+    ...initialReportState,
+    'custom-initial-title': "Section Title",
+    'custom-initial': [],
+  }));
   const [sections, setSections] = useState(initialSections);
   const reportContainerRef = useRef<HTMLDivElement>(null);
   const draggedItemId = useRef<string | null>(null);
@@ -46,34 +42,28 @@ export default function ReportPage() {
 
   const handleReset = useCallback(() => {
     if (window.confirm('Are you sure you want to reset all fields and images? This action cannot be undone.')) {
-      setReportData(initialReportState);
-      setSections(initialSections);
+        const newInitialSectionId = `custom-${Date.now()}`;
+        const newInitialSection = createNewSection(newInitialSectionId);
+        setReportData({
+            ...initialReportState,
+            [`${newInitialSectionId}-title`]: "Section Title",
+            [newInitialSectionId]: [],
+        });
+        setSections([newInitialSection]);
     }
   }, []);
 
-  const addSection = (type: 'overlay' | 'separate') => {
+  const addSection = () => {
     const newSectionId = `custom-${Date.now()}`;
-    const newSection = {
-      id: newSectionId,
-      component: 'custom',
-      props: {
-        id: newSectionId,
-        layout: type,
-      },
-      isDeletable: true,
-    };
+    const newSection = createNewSection(newSectionId);
     
     setSections(prev => [...prev, newSection]);
 
     // Initialize data for the new section
     setReportData(prev => ({
         ...prev,
-        [`${newSectionId}-title`]: "Custom Section Title",
-        // for separate layout
+        [`${newSectionId}-title`]: "New Section Title",
         [newSectionId]: [],
-        // for overlay layout
-        [`${newSectionId}-image`]: null,
-        [`${newSectionId}-overlays`]: [],
     }));
   };
 
@@ -112,6 +102,48 @@ export default function ReportPage() {
     setSections(newSections);
     draggedItemId.current = null;
   };
+  
+  // Ensure Conclusion section is always at the end
+  const conclusionSection = sections.find(s => s.component === 'conclusion');
+  const customSections = sections.filter(s => s.component !== 'conclusion');
+
+  const renderSection = (section: { id: string; component: string; props: any; isDeletable: boolean; }) => {
+    const Component = componentMap[section.component as keyof typeof componentMap];
+    if (!Component) return null;
+
+    return (
+        <div 
+        key={section.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, section.id)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, section.id)}
+        className="draggable-section relative group/section"
+        >
+        <div className="drag-handle">
+            <GripVertical size={20} />
+        </div>
+
+        {section.isDeletable && (
+            <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
+            onClick={() => deleteSection(section.id)}
+            aria-label="Delete section"
+            >
+                <Trash2 size={16}/>
+            </Button>
+        )}
+
+        <Component 
+            data={reportData} 
+            updateField={updateField}
+            {...section.props}
+        />
+        </div>
+    );
+  }
 
   return (
     <>
@@ -121,61 +153,15 @@ export default function ReportPage() {
         <MetaBar data={reportData} updateField={updateField} />
         
         <div className='report-body'>
-            {sections.map(section => {
-            const Component = componentMap[section.component as keyof typeof componentMap];
-            
-            return (
-                <div 
-                key={section.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, section.id)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, section.id)}
-                className="draggable-section relative group/section"
-                >
-                <div className="drag-handle">
-                    <GripVertical size={20} />
-                </div>
-
-                {section.isDeletable && (
-                    <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
-                    onClick={() => deleteSection(section.id)}
-                    aria-label="Delete section"
-                    >
-                        <Trash2 size={16}/>
-                    </Button>
-                )}
-
-                <Component 
-                    data={reportData} 
-                    updateField={updateField}
-                    {...section.props}
-                />
-                </div>
-            )
-            })}
+            {customSections.map(renderSection)}
+            {conclusionSection && renderSection(conclusionSection)}
         </div>
 
         <div className="p-5 flex justify-center border-t">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full md:w-auto">
-                  <PlusCircle className="mr-2"/>
-                  Add Custom Section
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => addSection('overlay')}>
-                  Image with Text Overlay
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => addSection('separate')}>
-                  Flexible Image & Text
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+             <Button variant="outline" className="w-full md:w-auto" onClick={addSection}>
+                <PlusCircle className="mr-2"/>
+                Add Section
+            </Button>
         </div>
 
         <footer className="report-footer">

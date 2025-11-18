@@ -117,10 +117,25 @@
     @apply border-b-0;
   }
 
-  .draggable-section .drag-handle {
-    @apply absolute top-1/2 -translate-y-1/2 -left-2 w-8 h-8 flex items-center justify-center text-muted-foreground/50 cursor-move opacity-0 group-hover/section:opacity-100 transition-opacity z-10;
+  .section-controls {
+    @apply absolute top-4 right-4 z-20 flex items-center gap-1 rounded-md bg-background p-1 border shadow-sm opacity-0 group-hover/section:opacity-100 transition-opacity;
   }
 
+  .draggable-section[data-locked='true']:hover .section-controls {
+    @apply opacity-100;
+  }
+  
+  .draggable-section[data-locked='true'] {
+     @apply bg-secondary/30;
+  }
+
+  .drag-handle {
+    @apply cursor-move text-muted-foreground p-1;
+  }
+  .drag-handle:hover {
+      @apply text-foreground;
+  }
+  
   .report-section h2 {
     @apply mb-3 flex items-center gap-2;
   }
@@ -214,8 +229,7 @@
     @apply outline-none w-full bg-transparent;
   }
 
-  .editable-field[contenteditable=true]:focus,
-  .editable-field:focus {
+  .editable-field:not([disabled]):focus {
     @apply bg-yellow-50/80 ring-2 ring-yellow-400 rounded-sm;
   }
 
@@ -223,17 +237,29 @@
     @apply inline-flex items-center gap-1.5 bg-primary/10 text-primary-foreground border border-primary-foreground/30 rounded-full px-2.5 py-1 text-xs font-medium;
   }
   .tag .editable-field {
-    @apply placeholder:text-primary-foreground/50;
+    @apply placeholder:text-primary-foreground/50 text-primary-foreground;
   }
   .tag:has(button) {
     @apply p-0;
   }
   .tag button {
-    @apply text-primary-foreground;
+    @apply text-primary-foreground bg-transparent border-primary-foreground/30 hover:bg-primary/20;
+  }
+  .tag button:hover {
+      @apply text-primary-foreground;
   }
 
   .report-footer {
     @apply p-4 px-5 bg-slate-100 text-slate-500 text-xs text-center;
+  }
+  
+  .printing-pdf .section-controls,
+  .printing-pdf .add-section-container,
+  .printing-pdf .block-toolbar,
+  .printing-pdf .add-block-btn,
+  .printing-pdf .chart-tools,
+  .printing-pdf *[data-hide-print="true"] {
+      display: none !important;
   }
 }
 
@@ -248,7 +274,7 @@
     max-width: 100%;
     border: none;
   }
-  .action-bar, .chart-tools, .ai-insights-btn, .drag-handle {
+  .action-bar {
     display: none !important;
   }
   .report-section {
@@ -256,5 +282,13 @@
   }
   .chart-card, .kpi {
     page-break-inside: avoid;
+  }
+   .section-controls,
+  .add-section-container,
+  .block-toolbar,
+  .add-block-btn,
+  .chart-tools,
+  *[data-hide-print="true"] {
+      display: none !important;
   }
 }

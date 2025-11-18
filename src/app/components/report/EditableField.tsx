@@ -10,6 +10,7 @@ type EditableFieldProps = {
   type?: "text" | "textarea" | "richtext";
   className?: string;
   tag?: keyof JSX.IntrinsicElements;
+  disabled?: boolean;
 };
 
 const EditableField: React.FC<EditableFieldProps> = ({
@@ -19,14 +20,17 @@ const EditableField: React.FC<EditableFieldProps> = ({
   type = "text",
   className,
   tag = "div",
+  disabled = false,
 }) => {
   const ref = useRef<any>(null);
 
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
+    if (disabled) return;
     onChange(id, e.currentTarget.innerHTML);
   };
   
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (disabled) return;
     onChange(id, e.target.value);
   };
 
@@ -40,6 +44,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
   // Handle paste as plain text
   const handlePaste = (e: React.ClipboardEvent) => {
+    if (disabled) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
     if (type === 'richtext') {
@@ -62,11 +67,11 @@ const EditableField: React.FC<EditableFieldProps> = ({
     return (
       <Component
         ref={ref}
-        contentEditable
+        contentEditable={!disabled}
         suppressContentEditableWarning
         onInput={handleInput}
         onPaste={handlePaste}
-        className={cn("editable-field", className)}
+        className={cn("editable-field", disabled && "cursor-not-allowed", className)}
         dangerouslySetInnerHTML={{ __html: value }}
       />
     );
@@ -81,6 +86,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
         onPaste={handlePaste}
         className={cn("editable-field resize-none overflow-hidden", className)}
         rows={1}
+        disabled={disabled}
       />
     );
   }
@@ -93,6 +99,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
       onChange={handleTextChange}
       onPaste={handlePaste}
       className={cn("editable-field", className)}
+      disabled={disabled}
     />
   );
 };

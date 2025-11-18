@@ -5,7 +5,7 @@ import { ReportState } from '@/lib/report-data';
 import EditableField from './EditableField';
 import ImageSlot from './ImageSlot';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, GripVertical, Columns, Rows, Image as ImageIcon, Pilcrow, Table } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Columns, Image as ImageIcon, Pilcrow, Table } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,10 +52,11 @@ type CustomSectionProps = {
   id: string;
   data: ReportState;
   updateField: (id: string, value: any) => void;
+  isLocked: boolean;
 };
 
 // --- MAIN COMPONENT ---
-export default function CustomSection({ id: sectionId, data, updateField }: CustomSectionProps) {
+export default function CustomSection({ id: sectionId, data, updateField, isLocked }: CustomSectionProps) {
   const sectionTitleKey = `${sectionId}-title`;
   const blocks: Block[] = data[sectionId] || [];
 
@@ -124,6 +125,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
 
 
  const updateBlock = (blockId: string, newValues: Partial<Block>) => {
+    if (isLocked) return;
     const blockPath = findBlockPath(blockId, blocks);
     if (!blockPath) return;
 
@@ -163,6 +165,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
   };
   
   const addBlock = (type: Block['type'], parentPath?: number[]) => {
+      if (isLocked) return;
       const newBlock = createNewBlock(type);
       let newBlocks = [...blocks];
       if (parentPath) {
@@ -187,7 +190,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
   };
   
  const deleteBlock = (blockId: string) => {
-    if (!window.confirm('Are you sure you want to delete this block?')) return;
+    if (isLocked || !window.confirm('Are you sure you want to delete this block?')) return;
     const path = findBlockPath(blockId, blocks);
     if (!path) return;
     updateBlocks(removeBlockByPath(path, blocks));
@@ -195,6 +198,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
 
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, blockId: string) => {
+      if (isLocked) return;
       e.stopPropagation();
       draggedBlockId.current = blockId;
       e.dataTransfer.effectAllowed = 'move';
@@ -202,12 +206,14 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>, path: number[]) => {
+      if (isLocked) return;
       e.preventDefault();
       e.stopPropagation();
       dropTarget.current = { path };
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      if (isLocked) return;
       e.preventDefault();
       e.stopPropagation();
       if (!draggedBlockId.current || !dropTarget.current) return;
@@ -257,21 +263,24 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
       dropTarget.current = null;
   };
 
-  const AddBlockButton = ({ parentPath }: { parentPath?: number[] }) => (
-    <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full my-2">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Block
-            </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => addBlock('text', parentPath)}><Pilcrow className='mr-2 h-4 w-4'/>Text</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => addBlock('image_grid', parentPath)}><ImageIcon className='mr-2 h-4 w-4'/>Image Grid</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => addBlock('table', parentPath)}><Table className='mr-2 h-4 w-4'/>Table</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => addBlock('layout', parentPath)}><Columns className='mr-2 h-4 w-4'/>Columns (Layout)</DropdownMenuItem>
-        </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const AddBlockButton = ({ parentPath }: { parentPath?: number[] }) => {
+    if (isLocked) return null;
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full my-2 add-block-btn">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Block
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => addBlock('text', parentPath)}><Pilcrow className='mr-2 h-4 w-4'/>Text</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => addBlock('image_grid', parentPath)}><ImageIcon className='mr-2 h-4 w-4'/>Image Grid</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => addBlock('table', parentPath)}><Table className='mr-2 h-4 w-4'/>Table</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => addBlock('layout', parentPath)}><Columns className='mr-2 h-4 w-4'/>Columns (Layout)</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+  };
 
   const renderBlock = (block: Block, path: number[]): React.ReactNode => {
     
@@ -280,22 +289,24 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
          className="block-container relative group/block my-2"
          onDragOver={(e) => handleDragOver(e, path)}
        >
-        <div className="block-toolbar" onMouseDown={e => e.stopPropagation()}>
-            <div 
-                className="drag-handle-block"
-                draggable
-                onDragStart={(e) => handleDragStart(e, block.id)}
-            >
-                <GripVertical size={16} />
+        {!isLocked && (
+            <div className="block-toolbar" onMouseDown={e => e.stopPropagation()}>
+                <div 
+                    className="drag-handle-block"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, block.id)}
+                >
+                    <GripVertical size={16} />
+                </div>
+                 <Button 
+                    size="icon" variant="ghost" 
+                    className="delete-handle-block"
+                    onClick={() => deleteBlock(block.id)}
+                 >
+                    <Trash2 className="w-4 h-4"/>
+                </Button>
             </div>
-             <Button 
-                size="icon" variant="ghost" 
-                className="delete-handle-block"
-                onClick={() => deleteBlock(block.id)}
-             >
-                <Trash2 className="w-4 h-4"/>
-            </Button>
-        </div>
+        )}
         {children}
       </div>
     );
@@ -311,6 +322,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
                   onChange={(_, value) => updateBlock(block.id, { content: value })}
                   type="richtext"
                   className="min-h-[100px]"
+                  disabled={isLocked}
                 />
             </div>
           </BlockContainer>
@@ -331,8 +343,9 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
                           updateBlock(block.id, { images: newImages });
                         }}
                         className='min-h-[160px]'
+                        disabled={isLocked}
                       />
-                       {block.images && block.images.length > 1 && (
+                       {!isLocked && block.images && block.images.length > 1 && (
                          <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover/image:opacity-100" onClick={() => {
                              const newImages = (block.images || []).filter(i => i.id !== img.id);
                              updateBlock(block.id, { images: newImages });
@@ -341,23 +354,25 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
                     </div>
                   ))}
                </div>
-               <div className='flex items-center gap-2 mt-3'>
-                 <Button size="sm" variant="outline" onClick={() => {
-                     const newImages = [...(block.images || []), {id: `img-${Date.now()}`, src: null}];
-                     updateBlock(block.id, {images: newImages});
-                 }}><PlusCircle size={14} className='mr-2'/>Add Image</Button>
-                 {block.images && block.images.length > 1 && (
-                   <>
-                     <label className='text-sm ml-auto'>Cols:</label>
-                     <select value={block.gridColumns} onChange={e => updateBlock(block.id, {gridColumns: parseInt(e.target.value)})} className='border rounded-md px-2 py-1 text-sm bg-background'>
-                       <option value={1}>1</option>
-                       <option value={2}>2</option>
-                       <option value={3}>3</option>
-                       <option value={4}>4</option>
-                     </select>
-                   </>
-                 )}
-               </div>
+               {!isLocked && (
+                 <div className='flex items-center gap-2 mt-3'>
+                   <Button size="sm" variant="outline" onClick={() => {
+                       const newImages = [...(block.images || []), {id: `img-${Date.now()}`, src: null}];
+                       updateBlock(block.id, {images: newImages});
+                   }}><PlusCircle size={14} className='mr-2'/>Add Image</Button>
+                   {block.images && block.images.length > 1 && (
+                     <>
+                       <label className='text-sm ml-auto'>Cols:</label>
+                       <select value={block.gridColumns} onChange={e => updateBlock(block.id, {gridColumns: parseInt(e.target.value)})} className='border rounded-md px-2 py-1 text-sm bg-background'>
+                         <option value={1}>1</option>
+                         <option value={2}>2</option>
+                         <option value={3}>3</option>
+                         <option value={4}>4</option>
+                       </select>
+                     </>
+                   )}
+                 </div>
+               )}
             </div>
           </BlockContainer>
         );
@@ -396,24 +411,28 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
                         {(block.tableData || []).map((row, rowIndex) => (
                             <tr key={rowIndex}>
                                 {row.map((cell, colIndex) => (
-                                    <td key={colIndex} contentEditable suppressContentEditableWarning onBlur={e => updateCell(rowIndex, colIndex, e.currentTarget.innerText)} className='border p-2 min-w-[100px]'>
+                                    <td key={colIndex} contentEditable={!isLocked} suppressContentEditableWarning onBlur={e => updateCell(rowIndex, colIndex, e.currentTarget.innerText)} className='border p-2 min-w-[100px]'>
                                         {cell}
                                     </td>
                                 ))}
-                                <td className='p-1 border-l-0 border-transparent'>
-                                    <Button size='icon' variant='ghost' className='h-6 w-6 text-muted-foreground' onClick={() => removeRow(rowIndex)}><Trash2 size={14}/></Button>
-                                </td>
+                                {!isLocked && (
+                                    <td className='p-1 border-l-0 border-transparent'>
+                                        <Button size='icon' variant='ghost' className='h-6 w-6 text-muted-foreground' onClick={() => removeRow(rowIndex)}><Trash2 size={14}/></Button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                 <div className='flex items-center gap-2 mt-2 text-sm'>
-                    <Button onClick={addRow} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1'/>Row</Button>
-                    <Button onClick={addCol} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1'/>Col</Button>
-                    {(block.tableData || [])[0]?.map((_, colIndex) => (
-                        <Button key={colIndex} onClick={() => removeCol(colIndex)} variant="ghost" size="icon" className='h-6 w-6 ml-auto first:ml-auto text-muted-foreground'><Trash2 size={14}/></Button>
-                    ))}
-                </div>
+                 {!isLocked && (
+                    <div className='flex items-center gap-2 mt-2 text-sm'>
+                        <Button onClick={addRow} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1'/>Row</Button>
+                        <Button onClick={addCol} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1'/>Col</Button>
+                        {(block.tableData || [])[0]?.map((_, colIndex) => (
+                            <Button key={colIndex} onClick={() => removeCol(colIndex)} variant="ghost" size="icon" className='h-6 w-6 ml-auto first:ml-auto text-muted-foreground'><Trash2 size={14}/></Button>
+                        ))}
+                    </div>
+                 )}
             </div>
           </BlockContainer>
         );
@@ -422,19 +441,21 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
         return (
           <BlockContainer key={block.id}>
              <div className='p-3 border rounded-lg bg-primary/5'>
-                <div className='flex items-center gap-2 mb-2'>
-                  <label className='text-sm font-medium'>Columns:</label>
-                  <select value={block.layout} onChange={e => {
-                      const newLayout = e.target.value as '1-col' | '2-col' | '3-col';
-                      const numCols = {'1-col':1, '2-col':2, '3-col':3}[newLayout];
-                      const newChildren = Array.from({length: numCols}, (_, i) => block.children?.[i] || []);
-                      updateBlock(block.id, {layout: newLayout, children: newChildren });
-                  }} className='border rounded-md px-2 py-1 text-sm bg-background'>
-                    <option value="1-col">1</option>
-                    <option value="2-col">2</option>
-                    <option value="3-col">3</option>
-                  </select>
-                </div>
+                {!isLocked && (
+                    <div className='flex items-center gap-2 mb-2'>
+                      <label className='text-sm font-medium'>Columns:</label>
+                      <select value={block.layout} onChange={e => {
+                          const newLayout = e.target.value as '1-col' | '2-col' | '3-col';
+                          const numCols = {'1-col':1, '2-col':2, '3-col':3}[newLayout];
+                          const newChildren = Array.from({length: numCols}, (_, i) => block.children?.[i] || []);
+                          updateBlock(block.id, {layout: newLayout, children: newChildren });
+                      }} className='border rounded-md px-2 py-1 text-sm bg-background'>
+                        <option value="1-col">1</option>
+                        <option value="2-col">2</option>
+                        <option value="3-col">3</option>
+                      </select>
+                    </div>
+                )}
                 <div className={cn('grid gap-4', columnClass)}>
                     {(block.children || []).map((colBlocks, colIndex) => (
                         <div key={colIndex} className='flex flex-col min-h-[100px]' onDragOver={e => handleDragOver(e, [...path, colIndex, colBlocks.length])}>
@@ -453,7 +474,7 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
 
   return (
     <div className="report-section" id={sectionId}>
-      <EditableField id={sectionTitleKey} value={data[sectionTitleKey] || ''} onChange={updateField} className="mb-3" tag="h2"/>
+      <EditableField id={sectionTitleKey} value={data[sectionTitleKey] || ''} onChange={updateField} className="mb-3" tag="h2" disabled={isLocked}/>
       
       <div onDrop={handleDrop}>
         {blocks.map((block, index) => renderBlock(block, [index]))}
@@ -465,58 +486,57 @@ export default function CustomSection({ id: sectionId, data, updateField }: Cust
 }
 
 // Add some extra CSS for the new block editor handles
-const customStyles = `
-  .block-toolbar {
-    position: absolute;
-    top: -12px;
-    right: 8px;
-    z-index: 10;
-    opacity: 0;
-    transition: opacity 0.2s, transform 0.2s;
-    transform: translateY(4px);
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    background-color: hsl(var(--background));
-    border: 1px solid hsl(var(--border));
-    border-radius: var(--radius);
-    padding: 2px;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  }
-  .block-container:hover .block-toolbar {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  .block-toolbar .drag-handle-block {
-    cursor: move;
-    color: hsl(var(--muted-foreground));
-    padding: 4px;
-  }
-  .block-toolbar .drag-handle-block:hover {
-      color: hsl(var(--foreground));
-  }
-  .block-toolbar .delete-handle-block {
-    height: 1.75rem;
-    width: 1.75rem;
-    color: hsl(var(--muted-foreground));
-  }
-  .block-toolbar .delete-handle-block:hover {
-      background-color: hsl(var(--destructive) / 0.1);
-      color: hsl(var(--destructive));
-  }
-  .editable-table td {
-      outline: none;
-  }
-  .editable-table td:focus {
-      background-color: hsl(var(--accent));
-  }
-`;
-
 if (typeof window !== 'undefined') {
-  const styleSheet = document.createElement("style");
-  styleSheet.type = "text/css";
-  styleSheet.innerText = customStyles;
-  document.head.appendChild(styleSheet);
+    const styleId = 'custom-section-styles';
+    if (!document.getElementById(styleId)) {
+        const styleSheet = document.createElement("style");
+        styleSheet.id = styleId;
+        styleSheet.innerText = `
+          .block-toolbar {
+            position: absolute;
+            top: -12px;
+            right: 8px;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            transform: translateY(4px);
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background-color: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            padding: 2px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+          }
+          .block-container:hover .block-toolbar {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          .block-toolbar .drag-handle-block {
+            cursor: move;
+            color: hsl(var(--muted-foreground));
+            padding: 4px;
+          }
+          .block-toolbar .drag-handle-block:hover {
+              color: hsl(var(--foreground));
+          }
+          .block-toolbar .delete-handle-block {
+            height: 1.75rem;
+            width: 1.75rem;
+            color: hsl(var(--muted-foreground));
+          }
+          .block-toolbar .delete-handle-block:hover {
+              background-color: hsl(var(--destructive) / 0.1);
+              color: hsl(var(--destructive));
+          }
+          .editable-table td {
+              outline: none;
+          }
+          .editable-table td:focus {
+              background-color: hsl(var(--accent));
+          }
+        `;
+        document.head.appendChild(styleSheet);
+    }
 }
-
-    

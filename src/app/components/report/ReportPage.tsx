@@ -6,7 +6,7 @@ import ReportHeader from './ReportHeader';
 import MetaBar from './MetaBar';
 import ActionBar from './ActionBar';
 import ConclusionSection from './ConclusionSection';
-import { PlusCircle, GripVertical, Trash2 } from 'lucide-react';
+import { PlusCircle, GripVertical, Trash2, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CustomSection, { Block } from './CustomSection';
 
@@ -15,14 +15,23 @@ const componentMap = {
   custom: CustomSection,
 };
 
-const createNewSection = (id: string, title: string): { id: string; component: string; props: any; isDeletable: boolean } => ({
+type Section = {
+  id: string;
+  component: string;
+  props: any;
+  isDeletable: boolean;
+  isLocked: boolean;
+};
+
+const createNewSection = (id: string, title: string): Section => ({
   id: id,
   component: 'custom',
   props: { id: id },
   isDeletable: true,
+  isLocked: false,
 });
 
-const initialSections: { id: string; component: string; props: any; isDeletable: boolean }[] = [
+const initialSections: Section[] = [
   createNewSection('custom-initial', "Section Title")
 ];
 
@@ -33,12 +42,12 @@ export default function ReportPage() {
         id: `block-${Date.now()}`,
         type: 'layout',
         layout: '1-col',
-        children: [],
+        children: [[]],
       };
       return {
         ...initialReportState,
         [`${initialId}-title`]: "Your Section Title",
-        [initialId]: [newBlock], // Start with one empty layout block
+        [initialId]: [newBlock],
       }
   });
 
@@ -58,7 +67,7 @@ export default function ReportPage() {
           id: `block-${Date.now()}`,
           type: 'layout',
           layout: '1-col',
-          children: [],
+          children: [[]],
         };
         setReportData({
             ...initialReportState,
@@ -75,12 +84,11 @@ export default function ReportPage() {
     
     setSections(prev => [...prev, newSection]);
 
-    // Initialize data for the new section
-     const newBlock: Block = {
+    const newBlock: Block = {
       id: `block-${Date.now()}`,
       type: 'layout',
       layout: '1-col',
-      children: [],
+      children: [[]],
     };
     setReportData(prev => ({
         ...prev,
@@ -91,16 +99,27 @@ export default function ReportPage() {
 
   const deleteSection = (idToDelete: string) => {
     const section = sections.find(s => s.id === idToDelete);
-    if (!section || !section.isDeletable) return;
+    if (!section || !section.isDeletable || section.isLocked) return;
 
     if (window.confirm('Are you sure you want to delete this section? This action cannot be undone.')) {
       setSections(sections => sections.filter(s => s.id !== idToDelete));
-      // Note: Data associated with the section remains in reportData but becomes orphaned.
-      // This is generally fine, but for a production app, you might want to clean it up.
     }
   };
 
+  const toggleLockSection = (idToToggle: string) => {
+    setSections(sections =>
+      sections.map(s =>
+        s.id === idToToggle ? { ...s, isLocked: !s.isLocked } : s
+      )
+    );
+  };
+
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    const section = sections.find(s => s.id === id);
+    if (section?.isLocked) {
+      e.preventDefault();
+      return;
+    }
     draggedItemId.current = id;
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -114,6 +133,9 @@ export default function ReportPage() {
     if (draggedItemId.current === null || draggedItemId.current === targetId) {
       return;
     }
+    
+    const targetSection = sections.find(s => s.id === targetId);
+    if (targetSection?.isLocked) return;
 
     const draggedIndex = sections.findIndex(s => s.id === draggedItemId.current);
     const targetIndex = sections.findIndex(s => s.id === targetId);
@@ -131,7 +153,7 @@ export default function ReportPage() {
   const conclusionSection = sections.find(s => s.component === 'conclusion');
   const customSections = sections.filter(s => s.component !== 'conclusion');
 
-  const renderSection = (section: { id: string; component: string; props: any; isDeletable: boolean; }) => {
+  const renderSection = (section: Section) => {
     const Component = componentMap[section.component as keyof typeof componentMap];
     if (!Component) return null;
 
@@ -139,6 +161,7 @@ export default function ReportPage() {
       <Component 
           data={reportData} 
           updateField={updateField}
+          isLocked={section.isLocked}
           {...section.props}
       />
     );
@@ -150,27 +173,42 @@ export default function ReportPage() {
     return (
         <div 
           key={section.id}
-          draggable
+          draggable={!section.isLocked}
           onDragStart={(e) => handleDragStart(e, section.id)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, section.id)}
           className="draggable-section relative group/section"
+          data-locked={section.isLocked}
         >
-          <div className="drag-handle">
-              <GripVertical size={20} />
-          </div>
-
-          {section.isDeletable && (
-              <Button 
+          <div className="section-controls">
+              {!section.isLocked && (
+                <div className="drag-handle" title="Drag to reorder">
+                    <GripVertical size={20} />
+                </div>
+              )}
+               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
-                onClick={() => deleteSection(section.id)}
-                aria-label="Delete section"
+                className="h-8 w-8 text-muted-foreground hover:bg-secondary"
+                onClick={() => toggleLockSection(section.id)}
+                aria-label={section.isLocked ? "Unlock section" : "Lock section"}
+                title={section.isLocked ? "Unlock section" : "Lock section"}
               >
-                  <Trash2 size={16}/>
+                  {section.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
               </Button>
-          )}
+              {section.isDeletable && !section.isLocked && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => deleteSection(section.id)}
+                    aria-label="Delete section"
+                    title="Delete section"
+                  >
+                      <Trash2 size={16}/>
+                  </Button>
+              )}
+          </div>
 
           {sectionContent}
         </div>
@@ -186,10 +224,10 @@ export default function ReportPage() {
         
         <div className='report-body'>
             {customSections.map(renderSection)}
-            {conclusionSection && renderSection(conclusionSection)}
+            {conclusionSection && renderSection(conclusionSection as Section)}
         </div>
 
-        <div className="p-5 flex justify-center border-t">
+        <div className="p-5 flex justify-center border-t add-section-container">
              <Button variant="outline" className="w-full md:w-auto" onClick={addSection}>
                 <PlusCircle className="mr-2"/>
                 Add Section
@@ -203,5 +241,3 @@ export default function ReportPage() {
     </>
   );
 }
-
-    

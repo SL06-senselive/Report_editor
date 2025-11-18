@@ -16,6 +16,7 @@ import {
 
 import EditableField from './EditableField';
 import { ReportState } from '@/lib/report-data';
+import ImageSlot from './ImageSlot';
 
 type ReportHeaderProps = {
   data: ReportState;
@@ -31,12 +32,21 @@ export default function ReportHeader({ data, updateField }: ReportHeaderProps) {
 
   return (
     <div className="report-header">
-      <div>
-        <h1>
-          <EditableField id="title" value={data.title} onChange={updateField} className="!font-bold text-primary-foreground" />
-        </h1>
-        <div style={{ opacity: 0.95 }}>
-          <EditableField id="subTitle" value={data.subTitle} onChange={updateField} className="text-primary-foreground" />
+      <div className="flex items-center gap-4 flex-1">
+        <ImageSlot
+          id="headerLogo"
+          src={data.headerLogo}
+          onUpload={updateField}
+          className="!h-16 !w-16 !min-h-0 !bg-primary-foreground/10 !border-primary-foreground/30 hover:!bg-primary-foreground/20"
+          hint="Logo"
+        />
+        <div className='flex-1'>
+          <h1>
+            <EditableField id="title" value={data.title} onChange={updateField} className="!font-bold text-primary-foreground" />
+          </h1>
+          <div style={{ opacity: 0.95 }}>
+            <EditableField id="subTitle" value={data.subTitle} onChange={updateField} className="text-primary-foreground" />
+          </div>
         </div>
       </div>
       <div className="right">

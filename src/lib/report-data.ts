@@ -11,6 +11,7 @@ initialFromDate.setMonth(initialFromDate.getMonth() - 1);
 
 export const initialReportState: ReportState = {
   // Header
+  headerLogo: null,
   title: 'Energy Bill Audit Report',
   subTitle: 'Cost audit & verification of electricity bills (MSEDCL & Open Access)',
   clientName: 'Client Name',

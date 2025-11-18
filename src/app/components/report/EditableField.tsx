@@ -43,13 +43,21 @@ const EditableField: React.FC<EditableFieldProps> = ({
       ref.current.style.height = `${ref.current.scrollHeight}px`;
     }
   }, [value, type]);
+  
+  // This is needed to prevent cursor jumping in contentEditable elements
+  useEffect(() => {
+    if (ref.current && type !== 'textarea' && type !== 'text' && ref.current.innerHTML !== value) {
+      ref.current.innerHTML = value;
+    }
+  }, [value, type]);
+
 
   // Handle paste as plain text
   const handlePaste = (e: React.ClipboardEvent) => {
     if (disabled) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    if (type === 'richtext') {
+    if (type === 'richtext' || (type === 'text' && tag !== 'div')) {
       document.execCommand("insertText", false, text);
     } else if (ref.current) {
       const start = ref.current.selectionStart;
@@ -67,6 +75,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
       const Component = tag;
       return (
         <Component
+          ref={ref}
           contentEditable={!disabled}
           suppressContentEditableWarning
           onInput={handleInput}

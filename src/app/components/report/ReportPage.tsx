@@ -8,30 +8,40 @@ import ActionBar from './ActionBar';
 import ConclusionSection from './ConclusionSection';
 import { PlusCircle, GripVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import CustomSection from './CustomSection';
+import CustomSection, { Block } from './CustomSection';
 
 const componentMap = {
   conclusion: ConclusionSection,
   custom: CustomSection,
 };
 
-const createNewSection = (id: string) => ({
+const createNewSection = (id: string, title: string): { id: string; component: string; props: any; isDeletable: boolean } => ({
   id: id,
   component: 'custom',
-  props: { id: id, layout: 'separate' }, // Defaulting to the flexible 'separate' layout
+  props: { id: id },
   isDeletable: true,
 });
 
 const initialSections: { id: string; component: string; props: any; isDeletable: boolean }[] = [
-  createNewSection('custom-initial')
+  createNewSection('custom-initial', "Section Title")
 ];
 
 export default function ReportPage() {
-  const [reportData, setReportData] = useState<ReportState>(() => ({
-    ...initialReportState,
-    'custom-initial-title': "Section Title",
-    'custom-initial': [],
-  }));
+  const [reportData, setReportData] = useState<ReportState>(() => {
+      const initialId = 'custom-initial';
+      const newBlock: Block = {
+        id: `block-${Date.now()}`,
+        type: 'layout',
+        layout: '1-col',
+        children: [],
+      };
+      return {
+        ...initialReportState,
+        [`${initialId}-title`]: "Your Section Title",
+        [initialId]: [newBlock], // Start with one empty layout block
+      }
+  });
+
   const [sections, setSections] = useState(initialSections);
   const reportContainerRef = useRef<HTMLDivElement>(null);
   const draggedItemId = useRef<string | null>(null);
@@ -43,11 +53,17 @@ export default function ReportPage() {
   const handleReset = useCallback(() => {
     if (window.confirm('Are you sure you want to reset all fields and images? This action cannot be undone.')) {
         const newInitialSectionId = `custom-${Date.now()}`;
-        const newInitialSection = createNewSection(newInitialSectionId);
+        const newInitialSection = createNewSection(newInitialSectionId, "Section Title");
+         const newBlock: Block = {
+          id: `block-${Date.now()}`,
+          type: 'layout',
+          layout: '1-col',
+          children: [],
+        };
         setReportData({
             ...initialReportState,
             [`${newInitialSectionId}-title`]: "Section Title",
-            [newInitialSectionId]: [],
+            [newInitialSectionId]: [newBlock],
         });
         setSections([newInitialSection]);
     }
@@ -55,19 +71,28 @@ export default function ReportPage() {
 
   const addSection = () => {
     const newSectionId = `custom-${Date.now()}`;
-    const newSection = createNewSection(newSectionId);
+    const newSection = createNewSection(newSectionId, "New Section Title");
     
     setSections(prev => [...prev, newSection]);
 
     // Initialize data for the new section
+     const newBlock: Block = {
+      id: `block-${Date.now()}`,
+      type: 'layout',
+      layout: '1-col',
+      children: [],
+    };
     setReportData(prev => ({
         ...prev,
         [`${newSectionId}-title`]: "New Section Title",
-        [newSectionId]: [],
+        [newSectionId]: [newBlock],
     }));
   };
 
   const deleteSection = (idToDelete: string) => {
+    const section = sections.find(s => s.id === idToDelete);
+    if (!section || !section.isDeletable) return;
+
     if (window.confirm('Are you sure you want to delete this section? This action cannot be undone.')) {
       setSections(sections => sections.filter(s => s.id !== idToDelete));
       // Note: Data associated with the section remains in reportData but becomes orphaned.
@@ -103,7 +128,6 @@ export default function ReportPage() {
     draggedItemId.current = null;
   };
   
-  // Ensure Conclusion section is always at the end
   const conclusionSection = sections.find(s => s.component === 'conclusion');
   const customSections = sections.filter(s => s.component !== 'conclusion');
 
@@ -111,36 +135,44 @@ export default function ReportPage() {
     const Component = componentMap[section.component as keyof typeof componentMap];
     if (!Component) return null;
 
+    const sectionContent = (
+      <Component 
+          data={reportData} 
+          updateField={updateField}
+          {...section.props}
+      />
+    );
+
+    if (section.id === 'conclusion') {
+      return <div key={section.id}>{sectionContent}</div>
+    }
+
     return (
         <div 
-        key={section.id}
-        draggable
-        onDragStart={(e) => handleDragStart(e, section.id)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, section.id)}
-        className="draggable-section relative group/section"
+          key={section.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, section.id)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, section.id)}
+          className="draggable-section relative group/section"
         >
-        <div className="drag-handle">
-            <GripVertical size={20} />
-        </div>
+          <div className="drag-handle">
+              <GripVertical size={20} />
+          </div>
 
-        {section.isDeletable && (
-            <Button 
-            variant="ghost" 
-            size="icon" 
-            className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
-            onClick={() => deleteSection(section.id)}
-            aria-label="Delete section"
-            >
-                <Trash2 size={16}/>
-            </Button>
-        )}
+          {section.isDeletable && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-4 right-4 z-10 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover/section:opacity-100 transition-opacity"
+                onClick={() => deleteSection(section.id)}
+                aria-label="Delete section"
+              >
+                  <Trash2 size={16}/>
+              </Button>
+          )}
 
-        <Component 
-            data={reportData} 
-            updateField={updateField}
-            {...section.props}
-        />
+          {sectionContent}
         </div>
     );
   }
@@ -171,3 +203,5 @@ export default function ReportPage() {
     </>
   );
 }
+
+    

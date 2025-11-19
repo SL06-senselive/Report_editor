@@ -286,7 +286,7 @@ export default function ReportPage() {
       <ActionBar 
       onReset={handleReset} 
       reportRef={reportContainerRef} 
-      dateRange={reportData.period}   // ← ADD THIS LINE
+       // ← ADD THIS LINE
     />
 
       <div className="report-container" ref={reportContainerRef}>

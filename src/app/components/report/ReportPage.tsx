@@ -1,19 +1,22 @@
+
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { initialReportState, ReportState } from "@/lib/report-data";
 import ReportHeader from "./ReportHeader";
 import MetaBar from "./MetaBar";
 import ActionBar from "./ActionBar";
 import ConclusionSection from "./ConclusionSection";
+import CustomSection, { Block } from "./CustomSection";
 import { PlusCircle, GripVertical, Trash2, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import CustomSection, { Block } from "./CustomSection";
+
 
 const componentMap = {
   conclusion: ConclusionSection,
   custom: CustomSection,
 };
+
 
 type Section = {
   id: string;
@@ -23,6 +26,7 @@ type Section = {
   isLocked: boolean;
 };
 
+
 const createNewSection = (id: string, title: string): Section => ({
   id,
   component: "custom",
@@ -31,7 +35,9 @@ const createNewSection = (id: string, title: string): Section => ({
   isLocked: false,
 });
 
-const initialSections: Section[] = [createNewSection("custom-initial", "Section Title")];
+const initialSections: Section[] = [
+  createNewSection("custom-initial", "Section Title"),
+];
 
 export default function ReportPage() {
   const [reportData, setReportData] = useState<ReportState>(() => {
@@ -50,71 +56,87 @@ export default function ReportPage() {
   });
 
   const [sections, setSections] = useState(initialSections);
+  const [recentReports, setRecentReports] = useState<any[]>([]);
   const reportContainerRef = useRef<HTMLDivElement>(null);
   const draggedItemId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const savedData = localStorage.getItem("reportData");
+    const savedSections = localStorage.getItem("sections");
+    const savedRecent = localStorage.getItem("recentReports");
+
+    if (savedData) setReportData(JSON.parse(savedData));
+    if (savedSections) setSections(JSON.parse(savedSections));
+    if (savedRecent) setRecentReports(JSON.parse(savedRecent));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("reportData", JSON.stringify(reportData));
+  }, [reportData]);
+
+  useEffect(() => {
+    localStorage.setItem("sections", JSON.stringify(sections));
+  }, [sections]);
 
   const updateField = useCallback((key: string, value: any) => {
     setReportData((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const handleReset = useCallback(() => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset all fields and images? This action cannot be undone."
-      )
-    ) {
-      const newInitialSectionId = `custom-${Date.now()}`;
-      const newInitialSection = createNewSection(newInitialSectionId, "Section Title");
-      const newBlock: Block = {
-        id: `block-${Date.now()}`,
-        type: "layout",
-        layout: "1-col",
-        children: [[]],
-      };
-      setReportData({
-        ...initialReportState,
-        [`${newInitialSectionId}-title`]: "Section Title",
-        [newInitialSectionId]: [newBlock],
-      });
-      setSections([newInitialSection]);
-    }
-  }, []);
+    if (!window.confirm("Reset everything?")) return;
 
-  const addSection = () => {
-    const newSectionId = `custom-${Date.now()}`;
-    const newSection = createNewSection(newSectionId, "New Section Title");
+    localStorage.removeItem("reportData");
+    localStorage.removeItem("sections");
 
-    setSections((prev) => [...prev, newSection]);
-
+    const newId = `custom-${Date.now()}`;
+    const newSection = createNewSection(newId, "Section Title");
     const newBlock: Block = {
       id: `block-${Date.now()}`,
       type: "layout",
       layout: "1-col",
       children: [[]],
     };
+                                                 
+    setReportData({
+      ...initialReportState,
+      [`${newId}-title`]: "Section Title",
+      [newId]: [newBlock],
+    });
+
+    setSections([newSection]);
+  }, []);
+
+  const addSection = () => {
+    const newId = `custom-${Date.now()}`;
+    const newSection = createNewSection(newId, "New Section Title");
+    const newBlock: Block = {
+      id: `block-${Date.now()}`,
+      type: "layout",
+      layout: "1-col",
+      children: [[]],
+    };
+
     setReportData((prev) => ({
       ...prev,
-      [`${newSectionId}-title`]: "New Section Title",
-      [newSectionId]: [newBlock],
+      [`${newId}-title`]: "New Section Title",
+      [newId]: [newBlock],
     }));
+
+    setSections((prev) => [...prev, newSection]);
   };
 
   const deleteSection = (idToDelete: string) => {
     const section = sections.find((s) => s.id === idToDelete);
     if (!section || !section.isDeletable || section.isLocked) return;
 
-    if (
-      window.confirm(
-        "Are you sure you want to delete this section? This action cannot be undone."
-      )
-    ) {
-      setSections((sections) => sections.filter((s) => s.id !== idToDelete));
-    }
+    if (!window.confirm("Delete this section?")) return;
+
+    setSections((prev) => prev.filter((s) => s.id !== idToDelete));
   };
 
   const toggleLockSection = (idToToggle: string) => {
-    setSections((sections) =>
-      sections.map((s) =>
+    setSections((prev) =>
+      prev.map((s) =>
         s.id === idToToggle ? { ...s, isLocked: !s.isLocked } : s
       )
     );
@@ -130,20 +152,19 @@ export default function ReportPage() {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) =>
     e.preventDefault();
-  };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
+  const handleDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+    targetId: string
+  ) => {
     e.preventDefault();
-    if (draggedItemId.current === null || draggedItemId.current === targetId) {
-      return;
-    }
+    if (!draggedItemId.current || draggedItemId.current === targetId) return;
 
-    const targetSection = sections.find((s) => s.id === targetId);
-    if (targetSection?.isLocked) return;
-
-    const draggedIndex = sections.findIndex((s) => s.id === draggedItemId.current);
+    const draggedIndex = sections.findIndex(
+      (s) => s.id === draggedItemId.current
+    );
     const targetIndex = sections.findIndex((s) => s.id === targetId);
 
     if (draggedIndex === -1 || targetIndex === -1) return;
@@ -156,168 +177,186 @@ export default function ReportPage() {
     draggedItemId.current = null;
   };
 
-  const conclusionSection = sections.find((s) => s.component === "conclusion");
-  const customSections = sections.filter((s) => s.component !== "conclusion");
-
-  // ---------- UPDATED: renderer with optional wrapping ----------
-  const renderSection = (section: Section, options?: { wrap?: boolean }) => {
-    const wrap = options?.wrap ?? true;
-    const Component = componentMap[section.component as keyof typeof componentMap];
+  const renderSection = (section: Section) => {
+    const Component =
+      componentMap[section.component as keyof typeof componentMap];
     if (!Component) return null;
 
-    const sectionContent = (
-      <Component
-        data={reportData}
-        updateField={updateField}
-        isLocked={section.isLocked}
-        {...section.props}
-      />
-    );
-
-    // Conclusion: usually its own page
-    if (section.component === "conclusion") {
-      if (!wrap) return sectionContent;
-      return (
-        <div key={section.id} className="report-section">
-          {sectionContent}
-        </div>
-      );
-    }
-
-    // Custom sections (draggable)
-    if (!wrap) {
-      // used for FIRST section inside header's page
-      return (
-        <div
-          key={section.id}
-          draggable={!section.isLocked}
-          onDragStart={(e) => handleDragStart(e, section.id)}
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, section.id)}
-          className="draggable-section relative group/section"
-          data-locked={section.isLocked}
-        >
-          <div className="section-controls">
-            {!section.isLocked && (
-              <div className="drag-handle" title="Drag to reorder">
-                <GripVertical size={20} />
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:bg-secondary"
-              onClick={() => toggleLockSection(section.id)}
-              aria-label={section.isLocked ? "Unlock section" : "Lock section"}
-              title={section.isLocked ? "Unlock section" : "Lock section"}
-            >
-              {section.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
-            </Button>
-            {section.isDeletable && !section.isLocked && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => deleteSection(section.id)}
-                aria-label="Delete section"
-                title="Delete section"
-              >
-                <Trash2 size={16} />
-              </Button>
-            )}
-          </div>
-
-          {sectionContent}
-        </div>
-      );
-    }
-
-    // Default: wrap in its own report-section page
     return (
       <div
         key={section.id}
-        className="report-section draggable-section relative group/section"
+        className={`
+          relative bg-white border rounded-lg shadow-sm p-5 mb-6
+          group transition-all duration-200 hover:shadow-md
+          ${section.isLocked ? "opacity-75" : ""}
+        `}
         draggable={!section.isLocked}
         onDragStart={(e) => handleDragStart(e, section.id)}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, section.id)}
-        data-locked={section.isLocked}
       >
-        <div className="section-controls">
+        <div className="absolute top-3 right-3 flex space-x-2 bg-white border rounded-md px-2 py-1 opacity-0 group-hover:opacity-100">
           {!section.isLocked && (
-            <div className="drag-handle" title="Drag to reorder">
-              <GripVertical size={20} />
-            </div>
+            <GripVertical size={18} className="cursor-move text-gray-500" />
           )}
+
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:bg-secondary"
             onClick={() => toggleLockSection(section.id)}
-            aria-label={section.isLocked ? "Unlock section" : "Lock section"}
-            title={section.isLocked ? "Unlock section" : "Lock section"}
           >
             {section.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
           </Button>
+
           {section.isDeletable && !section.isLocked && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              className="text-red-600"
               onClick={() => deleteSection(section.id)}
-              aria-label="Delete section"
-              title="Delete section"
             >
               <Trash2 size={16} />
             </Button>
           )}
         </div>
 
-        {sectionContent}
+        <Component
+          data={reportData}
+          updateField={updateField}
+          isLocked={section.isLocked}
+          {...section.props}
+        />
       </div>
     );
   };
 
-  // ---------- NEW: split first section vs others ----------
-  const [firstCustom, ...otherCustom] = customSections;
+  // 🔥 NEW: STORE RECENT REPORT NAME
+  const recentReportsRef = useRef(recentReports);
+  useEffect(() => {
+    recentReportsRef.current = recentReports;
+  }, [recentReports]);
+
+  const saveToRecentlyEdited = (
+    data: { reportData: any; sections: any },
+    reportName: string
+  ) => {
+    const recent = [...recentReportsRef.current];
+
+    recent.unshift({
+      id: Date.now(),
+      name: reportName,
+      timestamp: new Date().toLocaleString(),
+      data,
+    });
+
+    if (recent.length > 10) recent.pop();
+
+    setRecentReports(recent);
+    localStorage.setItem("recentReports", JSON.stringify(recent));
+  };
+
+  // 🔥 UPDATED SAVE FUNCTION
+  const downloadReport = () => {
+    const reportName = window.prompt("Enter a name for this report:");
+
+    if (!reportName || reportName.trim() === "") {
+      alert("Report name is required!");
+      return;
+    }
+
+    const dataToSave = { reportData, sections };
+    const element = document.createElement("a");
+    const file = new Blob([JSON.stringify(dataToSave, null, 2)], {
+      type: "application/json",
+    });
+    element.href = URL.createObjectURL(file);
+    element.download = `${reportName}.json`;
+    document.body.appendChild(element);
+    element.click();
+
+    saveToRecentlyEdited(dataToSave, reportName);
+  };
+
+  const loadRecentReport = (report: any) => {
+    setReportData(report.data.reportData);
+    setSections(report.data.sections);
+  };
 
   return (
     <>
-      <ActionBar 
-      onReset={handleReset} 
-      reportRef={reportContainerRef} 
-       // ← ADD THIS LINE
-    />
+      <ActionBar onReset={handleReset} reportRef={reportContainerRef} />
 
-      <div className="report-container" ref={reportContainerRef}>
-        {/* PAGE 1+: Header + MetaBar + FIRST custom section */}
-        <div className="report-section">
-          <ReportHeader data={reportData} updateField={updateField} />
-          <MetaBar data={reportData} updateField={updateField} />
-          {firstCustom && renderSection(firstCustom, { wrap: false })}
-        </div>
+      <div className="report-container px-8 py-5 bg-gray-100 min-h-screen" ref={reportContainerRef}>
+        
+        <ReportHeader data={reportData} updateField={updateField} />
+        <MetaBar data={reportData} updateField={updateField} />
 
-        <div className="report-body">
-          {/* Each remaining section gets at least one full page */}
-          {otherCustom.map((s) => renderSection(s))}
-          {conclusionSection && renderSection(conclusionSection as Section)}
-        </div>
+        {sections.map((s) => renderSection(s))}
 
-        <div className="p-5 flex justify-center border-t add-section-container">
-          <Button
-            variant="outline"
-            className="w-full md:w-auto"
-            onClick={addSection}
-          >
+        <div className="p-5 flex justify-center bg-white rounded-lg shadow-sm mt-4">
+          <Button variant="outline" onClick={addSection}>
             <PlusCircle className="mr-2" />
             Add Section
           </Button>
         </div>
 
-        <footer className="report-footer">
-          Energy Bill Audit Report generated by Energy Audit Pro.
-        </footer>
+        <div data-hide-print className="p-5 flex justify-center">
+          <Button variant="outline" onClick={downloadReport}>
+            Save Report
+          </Button>
+        </div>
+
+    
+        <div data-hide-print className="p-5 bg-white rounded shadow-sm mt-6">
+          <h3 className="font-semibold mb-2">Recently Saved Reports</h3>
+
+          {recentReports.length === 0 && <p>No recent reports</p>}
+
+          <ul>
+            {recentReports.map((r) => (
+              <li key={r.id} className="mb-2 flex justify-between items-center">
+                <div>
+                  <span className="font-semibold">{r.name}</span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({r.timestamp})
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => loadRecentReport(r)}>
+                    Load
+                  </Button>
+                                           
+
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (!window.confirm("Delete this recent report?")) return;
+
+                      const updated = recentReports.filter((rep) => rep.id !== r.id);
+                      setRecentReports(updated);
+                      localStorage.setItem("recentReports", JSON.stringify(updated));
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* <footer className="mt-6 text-center text-xs text-gray-500"> */}
+        {/* <footer className="mt-6 text-center text-sm text-gray-600 leading-normal w-full">
+          Energy Bill Audit Report — Corporate Version
+        </footer> */}
+        <footer className="mt-10 py-3 text-center text-sm text-gray-600 leading-relaxed w-full ">
+  Energy Bill Audit Report — Corporate Version
+</footer>
       </div>
     </>
   );
 }
+                                                             

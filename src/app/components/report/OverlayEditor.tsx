@@ -25,7 +25,7 @@ export default function OverlayEditor({ overlay, onChange, onDelete }: OverlayEd
           id="overlay-text"
           value={overlay.text}
           onChange={(e) => onChange({ text: e.target.value })}
-          placeholder="Overlay text"
+           placeholder="Overlay text"
         />
       </div>
       <div className="grid grid-cols-2 gap-4 items-end">
@@ -64,3 +64,4 @@ export default function OverlayEditor({ overlay, onChange, onDelete }: OverlayEd
     </div>
   );
 }
+

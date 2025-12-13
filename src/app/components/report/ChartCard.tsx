@@ -47,5 +47,5 @@ const ChartCard: React.FC<ChartCardProps> = ({
     </div>
   );
 };
-
 export default ChartCard;
+

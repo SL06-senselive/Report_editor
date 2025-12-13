@@ -1,156 +1,144 @@
+
 "use client";
 
-import React, { useState, useRef, useCallback } from 'react';
-import { ReportState } from '@/lib/report-data';
-import EditableField from './EditableField';
-import ImageSlot from './ImageSlot';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, GripVertical, Columns, Image as ImageIcon, Pilcrow, Table, Heading3 } from 'lucide-react';
+import React, { useRef } from "react";
+import { ReportState } from "@/lib/report-data";
+import EditableField from "./EditableField";
+import ImageSlot from "./ImageSlot";
+import { Button } from "@/components/ui/button";
+import {
+  PlusCircle,
+  Trash2,
+  GripVertical,
+  Columns,
+  Image as ImageIcon,
+  Pilcrow,
+  Table,
+  Heading3,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
-// --- DATA STRUCTURES ---
+/* -----------------------
+   Block types & helpers
+   ----------------------- */
+
 export type Block = {
   id: string;
-  type: 'text' | 'image_grid' | 'table' | 'layout' | 'subheader';
-  // Text Block / Subheader Block
+  type: "text" | "image_grid" | "table" | "layout" | "subheader";
   content?: string;
-  // ImageGrid Block
   images?: { id: string; src: string | null; caption: string }[];
   gridColumns?: number;
-  // Table Block
+  placeholder?: string; 
   tableData?: string[][];
-  // Layout Block
-  layout?: '1-col' | '2-col' | '3-col';
-  children?: Block[][]; // Array of columns, each column is an array of blocks
+  layout?: "1-col" | "2-col" | "3-col";
+  children?: Block[][];
 };
 
-// --- HELPER FUNCTIONS ---
-const createNewBlock = (type: Block['type']): Block => {
-  const id = `block-${Date.now()}-${Math.random()}`;
+
+const createId = (prefix = "block") => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+const createNewBlock = (type: Block["type"]): Block => {
+  const id = createId();
   switch (type) {
-    case 'text':
-      return { id, type: 'text', content: 'Enter your text here...' };
-    case 'subheader':
-      return { id, type: 'subheader', content: 'Enter subheader text...' };
-    case 'image_grid':
-      return { id, type: 'image_grid', images: [{ id: `img-${id}`, src: null, caption: '' }], gridColumns: 1 };
-    case 'table':
-      return { id, type: 'table', tableData: [['Header 1', 'Header 2'], ['Data 1', 'Data 2']] };
-    case 'layout':
-      return { id, type: 'layout', layout: '2-col', children: [[], []] };
+    case "text":
+      return { id, type: "text", content: "Enter your text here...",   };
+    case "subheader":
+      return { id, type: "subheader", content: "Enter your text here... " , placeholder: "Enter your text here..."  };
+    case "image_grid":
+      return { id, type: "image_grid", images: [{ id: createId("img"), src: null, caption: "" }], gridColumns: 1 };
+    case "table":
+      return { id, type: "table", tableData: [["Header 1", "Header 2"], ["Data 1", "Data 2"]] };
+    case "layout":
+      return { id, type: "layout", layout: "2-col", children: [[], []] };
     default:
-      throw new Error(`Unknown block type: ${type}`);
-  }
+      throw new Error("Unknown block type");
+  } 
 };
 
-const findBlockPath = (targetId: string, searchBlocks: Block[]): number[] | null => {
-  for (let i = 0; i < searchBlocks.length; i++) {
-    const block = searchBlocks[i];
-    if (block.id === targetId) return [i];
-    if (block.type === 'layout' && block.children) {
-      for (let j = 0; j < block.children.length; j++) {
-        const childPath = findBlockPath(targetId, block.children[j]);
-        if (childPath) return [i, j, ...childPath];
+/* 
+  Recursively find the parent array and index for a block id.
+  Returns { parentArray, index } where parentArray is an actual array reference (inside a cloned root),
+  or null if not found.
+*/
+const findParentArrayAndIndex = (blocks: Block[], targetId: string): { parentArray: Block[]; index: number } | null => {
+  const stack: { arr: Block[] }[] = [{ arr: blocks }];
+
+  // helper recursion:
+  const helper = (arr: Block[]): { parentArray: Block[]; index: number } | null => {
+    for (let i = 0; i < arr.length; i++) {
+      const b = arr[i];
+      if (b.id === targetId) return { parentArray: arr, index: i };
+      if (b.type === "layout" && b.children) {
+        for (let col = 0; col < b.children.length; col++) {
+          const res = helper(b.children[col]);
+          if (res) return res;
+        }
       }
     }
-  }
-  return null;
+    return null;
+  };
+       
+  return helper(blocks);
 };
 
-const removeBlockByPath = (path: number[], currentBlocks: Block[]): Block[] => {
-  if (path.length === 1) {
-    return currentBlocks.filter((_, index) => index !== path[0]);
-  }
-  const newBlocks = [...currentBlocks];
-  let parent: any = newBlocks; // Could be Block[] or Block
-  for (let i = 0; i < path.length - 1; i++) {
-    if (Array.isArray(parent)) {
-      parent = parent[path[i]];
-    } else if (parent.type === 'layout' && parent.children) {
-      const colIndex = path[i];
-      const blockIndex = path[i + 1];
-      if (i === path.length - 2) { // The direct parent
-        parent.children[colIndex].splice(blockIndex, 1);
-        return newBlocks;
-      }
-      parent = parent.children[colIndex][blockIndex];
-      i++;
-    }
-  }
-  return newBlocks;
-};
+/* Safely deep-clone blocks */
+const cloneBlocks = (b: Block[]) => JSON.parse(JSON.stringify(b)) as Block[];
 
-// --- PROPS ---
-type CustomSectionProps = {
-  id: string;
-  data: ReportState;
-  updateField: (id: string, value: any) => void;
-  isLocked: boolean;
-};
+/* -----------------------
+   Child components
+   ----------------------- */
 
-// --- BLOCK CONTAINER COMPONENT ---
 type BlockContainerProps = {
   children: React.ReactNode;
-  className?: string;
   block: Block;
-  path: number[];
   isLocked: boolean;
-  onDragOver: (e: React.DragEvent<HTMLDivElement>, path: number[]) => void;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>, blockId: string) => void;
-  onDelete: (blockId: string) => void;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDropOnBlock: (e: React.DragEvent<HTMLDivElement>, targetId: string) => void;
+  onDelete: (id: string) => void;
+  className?: string;
 };
 
-const BlockContainer = ({
-  children,
-  className,
-  block,
-  path,
-  isLocked,
-  onDragOver,
-  onDragStart,
-  onDelete,
-}: BlockContainerProps) => (
-  <div
-    className={cn("block-container relative group/block my-2", className)}
-    onDragOver={(e) => onDragOver(e, path)}
-  >
-    {!isLocked && (
-      <div className="block-toolbar" onMouseDown={(e) => e.stopPropagation()}>
-        <div
-          className="drag-handle-block"
-          draggable
-          onDragStart={(e) => onDragStart(e, block.id)}
-        >
-          <GripVertical size={16} />
+const BlockContainer: React.FC<BlockContainerProps> = ({ children, block, isLocked, onDragStart, onDropOnBlock, onDelete, className }) => {
+  return (
+    <div
+      className={cn("block-container relative group/block my-3", className)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => onDropOnBlock(e, block.id)}
+      data-block-id={block.id}
+    >
+      {!isLocked && (
+        <div className="block-toolbar" onMouseDown={(e) => e.stopPropagation()}>
+          <div
+            className="drag-handle-block"
+            draggable
+            onDragStart={(e) => onDragStart(e, block.id)}
+            title="Drag to reorder"
+          >
+            <GripVertical size={16} />
+          </div>
+          <Button size="icon" variant="ghost" className="delete-handle-block" onClick={() => onDelete(block.id)} title="Delete block">
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="delete-handle-block"
-          onClick={() => onDelete(block.id)}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    )}
-    {children}
-  </div>
-);
-
-// --- ADD BLOCK BUTTON COMPONENT ---
-type AddBlockButtonProps = {
-  parentPath?: number[];
-  isLocked: boolean;
-  addBlock: (type: Block['type'], parentPath?: number[]) => void;
+      )}
+      {children}
+    </div>
+  );
 };
 
-const AddBlockButton = ({ parentPath, isLocked, addBlock }: AddBlockButtonProps) => {
+type AddBlockButtonProps = {
+  parentId?: string;
+  colIndex?: number;
+  isLocked: boolean;
+  addBlock: (type: Block["type"], parentId?: string, colIndex?: number) => void;
+};
+
+const AddBlockButton: React.FC<AddBlockButtonProps> = ({ parentId, colIndex, isLocked, addBlock }) => {
   if (isLocked) return null;
   return (
     <DropdownMenu>
@@ -160,78 +148,74 @@ const AddBlockButton = ({ parentPath, isLocked, addBlock }: AddBlockButtonProps)
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onSelect={() => addBlock('text', parentPath)}><Pilcrow className='mr-2 h-4 w-4' />Text</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => addBlock('subheader', parentPath)}><Heading3 className='mr-2 h-4 w-4' />Subheader</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => addBlock('image_grid', parentPath)}><ImageIcon className='mr-2 h-4 w-4' />Image Grid</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => addBlock('table', parentPath)}><Table className='mr-2 h-4 w-4' />Table</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => addBlock('layout', parentPath)}><Columns className='mr-2 h-4 w-4' />Columns (Layout)</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => addBlock("text", parentId, colIndex)}>
+          <Pilcrow className="mr-2 h-4 w-4" /> Text
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => addBlock("subheader", parentId, colIndex)}>
+          <Heading3 className="mr-2 h-4 w-4" /> Subheader
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => addBlock("image_grid", parentId, colIndex)}>
+          <ImageIcon className="mr-2 h-4 w-4" /> Image Grid
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => addBlock("table", parentId, colIndex)}>
+          <Table className="mr-2 h-4 w-4" /> Table
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => addBlock("layout", parentId, colIndex)}>
+          <Columns className="mr-2 h-4 w-4" /> Columns (Layout)
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
 
-// --- BLOCK RENDERER COMPONENT ---
+/* -----------------------
+   BlockRenderer
+   ----------------------- */
+
 type BlockRendererProps = {
   block: Block;
-  path: number[];
   isLocked: boolean;
-  updateBlock: (id: string, val: Partial<Block>) => void;
+  updateBlock: (id: string, patch: Partial<Block>) => void;
   deleteBlock: (id: string) => void;
+  addBlock: (type: Block["type"], parentId?: string, colIndex?: number) => void;
   handleDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  handleDragOver: (e: React.DragEvent<HTMLDivElement>, path: number[]) => void;
-  addBlock: (type: Block['type'], parentPath?: number[]) => void;
+  handleDropOnBlock: (e: React.DragEvent<HTMLDivElement>, targetId: string) => void;
 };
 
-const BlockRenderer = ({
+const BlockRenderer: React.FC<BlockRendererProps> = ({
   block,
-  path,
   isLocked,
   updateBlock,
   deleteBlock,
+  addBlock,
   handleDragStart,
-  handleDragOver,
-  addBlock
-}: BlockRendererProps) => {
+  handleDropOnBlock,
+}) => {
   switch (block.type) {
-    case 'text':
+    case "text":
       return (
-        <BlockContainer
-          key={block.id}
-          block={block}
-          path={path}
-          isLocked={isLocked}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
-          onDelete={deleteBlock}
-        >
-          <div className='p-3 border rounded-lg bg-secondary/30'>
+        <BlockContainer block={block} isLocked={isLocked} onDragStart={handleDragStart} onDropOnBlock={handleDropOnBlock} onDelete={deleteBlock}>
+          <div className="p-3 border rounded-lg bg-secondary/20">
             <EditableField
               id={`${block.id}-content`}
-              value={block.content || ''}
+              value={block.content || ""}
               onChange={(_, value) => updateBlock(block.id, { content: value })}
+                placeholder={block.placeholder}  // <-- ADD THIS
               type="richtext"
-              className="min-h-[100px]"
+              className="min-h-[120px]"
               disabled={isLocked}
             />
           </div>
         </BlockContainer>
       );
-    case 'subheader':
+    case "subheader":
       return (
-        <BlockContainer
-          key={block.id}
-          className="my-3"
-          block={block}
-          path={path}
-          isLocked={isLocked}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
-          onDelete={deleteBlock}
-        >
+        <BlockContainer block={block} isLocked={isLocked} onDragStart={handleDragStart} onDropOnBlock={handleDropOnBlock} onDelete={deleteBlock} className="my-2">
           <EditableField
             id={`${block.id}-content`}
-            value={block.content || ''}
+            value={block.content || ""}
             onChange={(_, value) => updateBlock(block.id, { content: value })}
+              placeholder={block.placeholder}  // <-- ADD THIS
             type="text"
             tag="h3"
             className="!text-base !font-semibold text-primary/90"
@@ -239,21 +223,13 @@ const BlockRenderer = ({
           />
         </BlockContainer>
       );
-    case 'image_grid':
+    case "image_grid":
       return (
-        <BlockContainer
-          key={block.id}
-          block={block}
-          path={path}
-          isLocked={isLocked}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
-          onDelete={deleteBlock}
-        >
-          <div className='p-3 border rounded-lg'>
-            <div className='grid gap-3' style={{ gridTemplateColumns: `repeat(${block.gridColumns || 1}, 1fr)` }}>
+        <BlockContainer block={block} isLocked={isLocked} onDragStart={handleDragStart} onDropOnBlock={handleDropOnBlock} onDelete={deleteBlock}>
+          <div className="p-3 border rounded-lg">
+            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${block.gridColumns || 1}, 1fr)` }}>
               {(block.images || []).map((img, index) => (
-                <div key={img.id} className="relative group/image">
+                <div key={img.id} className="relative group/image  w-full h-[500] flex items-center justify-center bg-gray-100 overflow-hidden rounded-lg">
                   <ImageSlot
                     id={img.id}
                     src={img.src}
@@ -262,20 +238,30 @@ const BlockRenderer = ({
                       newImages[index].src = src;
                       updateBlock(block.id, { images: newImages });
                     }}
-                    className='min-h-[160px]'
+                    className="w-full h-full object-cover"
+                     //className="w-full h-auto object-contain print-image"
                     disabled={isLocked}
                   />
                   {!isLocked && block.images && block.images.length > 1 && (
-                    <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover/image:opacity-100" onClick={() => {
-                      const newImages = (block.images || []).filter(i => i.id !== img.id);
-                      updateBlock(block.id, { images: newImages });
-                    }}><Trash2 className="w-4 h-4" /></Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover/image:opacity-100"
+                      onClick={() => {
+                        const newImages = (block.images || []).filter((i) => i.id !== img.id);
+                        updateBlock(block.id, { images: newImages });
+                      }}
+                      title="Remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   )}
+
                   {!isLocked && (
-                    <div className='p-1 pt-2'>
+                    <div className="p-1 pt-2">
                       <EditableField
                         id={`${img.id}-caption`}
-                        value={img.caption || ''}
+                        value={img.caption || ""}
                         onChange={(_, value) => {
                           const newImages = [...(block.images || [])];
                           newImages[index].caption = value;
@@ -291,16 +277,29 @@ const BlockRenderer = ({
                 </div>
               ))}
             </div>
+
             {!isLocked && (
-              <div className='flex items-center gap-2 mt-3'>
-                <Button size="sm" variant="outline" onClick={() => {
-                  const newImages = [...(block.images || []), { id: `img-${Date.now()}`, src: null, caption: '' }];
-                  updateBlock(block.id, { images: newImages });
-                }}><PlusCircle size={14} className='mr-2' />Add Image</Button>
+              <div className="flex items-center gap-2 mt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const newImages = [...(block.images || []), { id: createId("img"), src: null, caption: "" }];
+                    updateBlock(block.id, { images: newImages });
+                  }}
+                >
+                  <PlusCircle size={14} className="mr-2" />
+                  Add Image
+                </Button>
+
                 {block.images && block.images.length > 1 && (
                   <>
-                    <label className='text-sm ml-auto'>Cols:</label>
-                    <select value={block.gridColumns} onChange={e => updateBlock(block.id, { gridColumns: parseInt(e.target.value) })} className='border rounded-md px-2 py-1 text-sm bg-background'>
+                    <label className="text-sm ml-auto">Cols:</label>
+                    <select
+                      value={block.gridColumns}
+                      onChange={(e) => updateBlock(block.id, { gridColumns: parseInt(e.target.value || "1") })}
+                      className="border rounded-md px-2 py-1 text-sm bg-background"
+                    >
                       <option value={1}>1</option>
                       <option value={2}>2</option>
                       <option value={3}>3</option>
@@ -313,7 +312,7 @@ const BlockRenderer = ({
           </div>
         </BlockContainer>
       );
-    case 'table':
+    case "table": {
       const updateCell = (rowIndex: number, colIndex: number, value: string) => {
         const newTableData = JSON.parse(JSON.stringify(block.tableData || []));
         newTableData[rowIndex][colIndex] = value;
@@ -322,349 +321,344 @@ const BlockRenderer = ({
       const addRow = () => {
         const newTableData = JSON.parse(JSON.stringify(block.tableData || []));
         const numCols = newTableData[0]?.length || 1;
-        newTableData.push(Array(numCols).fill(''));
+        newTableData.push(Array(numCols).fill(""));
         updateBlock(block.id, { tableData: newTableData });
-      }
+      };
       const addCol = () => {
         const newTableData = JSON.parse(JSON.stringify(block.tableData || []));
-        newTableData.forEach((row: any) => row.push(''));
+        newTableData.forEach((row: string[]) => row.push(""));
         updateBlock(block.id, { tableData: newTableData });
-      }
+      };
       const removeRow = (rowIndex: number) => {
         if ((block.tableData || []).length <= 1) return;
         const newTableData = (block.tableData || []).filter((_, i) => i !== rowIndex);
         updateBlock(block.id, { tableData: newTableData });
-      }
+      };
       const removeCol = (colIndex: number) => {
         if ((block.tableData || [])[0]?.length <= 1) return;
-        const newTableData = (block.tableData || []).map(row => row.filter((_, i) => i !== colIndex));
+        const newTableData = (block.tableData || []).map((row) => row.filter((_, i) => i !== colIndex));
         updateBlock(block.id, { tableData: newTableData });
-      }
+      };
+
       return (
-        <BlockContainer
-          key={block.id}
-          block={block}
-          path={path}
-          isLocked={isLocked}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
-          onDelete={deleteBlock}
-        >
+        <BlockContainer block={block} isLocked={isLocked} onDragStart={handleDragStart} onDropOnBlock={handleDropOnBlock} onDelete={deleteBlock}>
           <div className="p-3 border rounded-lg overflow-x-auto">
-            <table className='w-full border-collapse editable-table'>
+            <table className="w-full border-collapse editable-table">
               <tbody>
                 {(block.tableData || []).map((row, rowIndex) => (
                   <tr key={rowIndex}>
                     {row.map((cell, colIndex) => (
-                      <td key={colIndex} contentEditable={!isLocked} suppressContentEditableWarning onBlur={e => updateCell(rowIndex, colIndex, e.currentTarget.innerText)} className='border p-2 min-w-[100px]'>
+                      <td
+                        key={colIndex}
+                        contentEditable={!isLocked}
+                        suppressContentEditableWarning
+                        onBlur={(e) => updateCell(rowIndex, colIndex, e.currentTarget.innerText || "")}
+                        className="border p-2 min-w-[100px]"
+                      >
                         {cell}
                       </td>
                     ))}
                     {!isLocked && (
-                      <td className='p-1 border-l-0 border-transparent'>
-                        <Button size='icon' variant='ghost' className='h-6 w-6 text-muted-foreground' onClick={() => removeRow(rowIndex)}><Trash2 size={14} /></Button>
+                      <td className="p-1 border-l-0 border-transparent">
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => removeRow(rowIndex)} title="Remove row">
+                          <Trash2 size={14} />
+                        </Button>
                       </td>
                     )}
                   </tr>
                 ))}
               </tbody>
             </table>
+
             {!isLocked && (
-              <div className='flex items-center gap-2 mt-2 text-sm'>
-                <Button onClick={addRow} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1' />Row</Button>
-                <Button onClick={addCol} variant="ghost" size="sm"><PlusCircle size={14} className='mr-1' />Col</Button>
+              <div className="flex items-center gap-2 mt-2 text-sm">
+                <Button onClick={addRow} variant="ghost" size="sm">
+                  <PlusCircle size={14} className="mr-1" />
+                  Row
+                </Button>
+                <Button onClick={addCol} variant="ghost" size="sm">
+                  <PlusCircle size={14} className="mr-1" />
+                  Col
+                </Button>
                 {(block.tableData || [])[0]?.map((_, colIndex) => (
-                  <Button key={colIndex} onClick={() => removeCol(colIndex)} variant="ghost" size="icon" className='h-6 w-6 ml-auto first:ml-auto text-muted-foreground'><Trash2 size={14} /></Button>
+                  <Button key={colIndex} onClick={() => removeCol(colIndex)} variant="ghost" size="icon" className="h-6 w-6 ml-auto first:ml-auto text-muted-foreground" title="Remove column">
+                    <Trash2 size={14} />
+                  </Button>
                 ))}
               </div>
             )}
           </div>
         </BlockContainer>
       );
-    case 'layout':
-      const columnClass = { '1-col': 'grid-cols-1', '2-col': 'grid-cols-2', '3-col': 'grid-cols-3' }[block.layout || '1-col'];
+    }
+    case "layout": {
+      const columnClass = { "1-col": "grid-cols-1", "2-col": "grid-cols-2", "3-col": "grid-cols-3" }[block.layout || "1-col"];
       return (
-        <BlockContainer
-          key={block.id}
-          block={block}
-          path={path}
-          isLocked={isLocked}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
-          onDelete={deleteBlock}
-        >
-          <div className='p-3 border rounded-lg bg-primary/5'>
+        <BlockContainer block={block} isLocked={isLocked} onDragStart={handleDragStart} onDropOnBlock={handleDropOnBlock} onDelete={deleteBlock}>
+          <div className="p-3 border rounded-lg bg-primary/5">
             {!isLocked && (
-              <div className='flex items-center gap-2 mb-2'>
-                <label className='text-sm font-medium'>Columns:</label>
-                <select value={block.layout} onChange={e => {
-                  const newLayout = e.target.value as '1-col' | '2-col' | '3-col';
-                  const numCols = { '1-col': 1, '2-col': 2, '3-col': 3 }[newLayout];
-                  const newChildren = Array.from({ length: numCols }, (_, i) => block.children?.[i] || []);
-                  updateBlock(block.id, { layout: newLayout, children: newChildren });
-                }} className='border rounded-md px-2 py-1 text-sm bg-background'>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="text-sm font-medium">Columns:</label>
+                <select
+                  value={block.layout}
+                  onChange={(e) => {
+                    const newLayout = e.target.value as "1-col" | "2-col" | "3-col";
+                    const numCols = { "1-col": 1, "2-col": 2, "3-col": 3 }[newLayout];
+                    // ensure children length
+                    const newChildren = Array.from({ length: numCols }, (_, i) => block.children?.[i] || []);
+                    updateBlock(block.id, { layout: newLayout, children: newChildren });
+                  }}
+                  className="border rounded-md px-2 py-1 text-sm bg-background"
+                >
                   <option value="1-col">1</option>
                   <option value="2-col">2</option>
                   <option value="3-col">3</option>
                 </select>
               </div>
             )}
-            <div className={cn('grid gap-4', columnClass)}>
+
+            <div className={cn("grid gap-4", columnClass)}>
               {(block.children || []).map((colBlocks, colIndex) => (
-                <div key={colIndex} className='flex flex-col min-h-[100px]' onDragOver={e => handleDragOver(e, [...path, colIndex, colBlocks.length])}>
+                <div
+                  key={colIndex}
+                  className="flex flex-col min-h-[100px] p-1 break-words whitespace-normal min-w-0"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    // drop on empty column - we'll handle outside by reading dragged id and inserting to this column end
+                    e.preventDefault();
+                    const dragId = e.dataTransfer.getData("text/plain");
+                    // We handle drop via parent drop handler in CustomSection
+                    // store a special attribute so parent can find intended column (we handle here by bubbling)
+                  }}
+                >
                   {colBlocks.map((childBlock, blockIndex) => (
                     <BlockRenderer
                       key={childBlock.id}
                       block={childBlock}
-                      path={[...path, colIndex, blockIndex]}
                       isLocked={isLocked}
                       updateBlock={updateBlock}
                       deleteBlock={deleteBlock}
-                      handleDragStart={handleDragStart}
-                      handleDragOver={handleDragOver}
                       addBlock={addBlock}
+                      handleDragStart={handleDragStart}
+                      handleDropOnBlock={handleDropOnBlock}
                     />
                   ))}
-                  <AddBlockButton parentPath={[...path, colIndex]} isLocked={isLocked} addBlock={addBlock} />
+                  <AddBlockButton parentId={block.id} colIndex={colIndex} isLocked={isLocked} addBlock={addBlock} />
                 </div>
               ))}
             </div>
           </div>
         </BlockContainer>
       );
+    }
     default:
-      return <div key={block.id}>Unknown block type</div>;
+      return <div>Unknown block</div>;
   }
 };
 
-// --- MAIN COMPONENT ---
+/* -----------------------
+   Main component
+   ----------------------- */
+
+type CustomSectionProps = {
+  id: string;
+  data: ReportState;
+  updateField: (id: string, value: any) => void;
+  isLocked: boolean;
+};
+
 export default function CustomSection({ id: sectionId, data, updateField, isLocked }: CustomSectionProps) {
   const sectionTitleKey = `${sectionId}-title`;
-  const blocks: Block[] = data[sectionId] || [];
+  const blocks: Block[] = (data[sectionId] as Block[]) || [];
 
   const draggedBlockId = useRef<string | null>(null);
-  const dropTarget = useRef<{ path: number[] } | null>(null);
 
   const updateBlocks = (newBlocks: Block[]) => {
     updateField(sectionId, newBlocks);
   };
 
-  const updateBlock = (blockId: string, newValues: Partial<Block>) => {
+  const updateBlock = (blockId: string, patch: Partial<Block>) => {
     if (isLocked) return;
-    const blockPath = findBlockPath(blockId, blocks);
-    if (!blockPath) return;
-
-    let newBlocks = JSON.parse(JSON.stringify(blocks));
-    let blockToUpdate: Block | undefined = newBlocks;
-
-    let parent: any = { children: [newBlocks] };
-    let finalKey: number | string = 0;
-
-    for (let i = 0; i < blockPath.length; i++) {
-      const key = blockPath[i];
-      if (i === blockPath.length - 1) {
-        finalKey = key;
-        break;
-      }
-      if (blockToUpdate && blockToUpdate.type === 'layout' && blockToUpdate.children) {
-        const [colIndex, blockIndex] = blockPath.slice(i + 1);
-        parent = blockToUpdate.children[colIndex];
-        finalKey = blockIndex;
-        i++;
-      } else if (Array.isArray(blockToUpdate)) {
-        parent = blockToUpdate;
-        blockToUpdate = blockToUpdate[key];
-      } else {
-        console.error("Path traversal failed");
-        return;
-      }
-    }
-
-    if (parent && typeof finalKey === 'number' && parent[finalKey]) {
-      parent[finalKey] = { ...parent[finalKey], ...newValues };
-    } else {
-      newBlocks[blockPath[0]] = { ...newBlocks[blockPath[0]], ...newValues };
-    }
-
-    updateBlocks(newBlocks);
-  };
-
-  const addBlock = (type: Block['type'], parentPath?: number[]) => {
-    if (isLocked) return;
-    const newBlock = createNewBlock(type);
-    let newBlocks = [...blocks];
-    if (parentPath) {
-      let parent: any = newBlocks;
-      for (let i = 0; i < parentPath.length; i++) {
-        if (Array.isArray(parent)) {
-          parent = parent[parentPath[i]];
-        } else if (parent.type === 'layout' && parent.children) {
-          const colIndex = parentPath[i];
-          parent = parent.children[colIndex];
-        }
-      }
-      if (Array.isArray(parent)) {
-        parent.push(newBlock);
-      } else {
-        console.error("Cannot add block to non-array parent");
-      }
-    } else {
-      newBlocks.push(newBlock);
-    }
+    const newBlocks = cloneBlocks(blocks);
+    const found = findParentArrayAndIndex(newBlocks, blockId);
+    if (!found) return;
+    found.parentArray[found.index] = { ...found.parentArray[found.index], ...patch };
     updateBlocks(newBlocks);
   };
 
   const deleteBlock = (blockId: string) => {
-    if (isLocked || !window.confirm('Are you sure you want to delete this block?')) return;
-    const path = findBlockPath(blockId, blocks);
-    if (!path) return;
-    updateBlocks(removeBlockByPath(path, blocks));
+    if (isLocked) return;
+    if (!window.confirm("Are you sure you want to delete this block?")) return;
+    const newBlocks = cloneBlocks(blocks);
+    const found = findParentArrayAndIndex(newBlocks, blockId);
+    if (!found) return;
+    found.parentArray.splice(found.index, 1);
+    updateBlocks(newBlocks);
   };
 
-
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, blockId: string) => {
+  const addBlock = (type: Block["type"], parentId?: string, colIndex?: number) => {
     if (isLocked) return;
-    e.stopPropagation();
-    draggedBlockId.current = blockId;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', blockId);
-  };
+    const newBlock = createNewBlock(type);
+    const newBlocks = cloneBlocks(blocks);
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, path: number[]) => {
-    if (isLocked) return;
-    e.preventDefault();
-    e.stopPropagation();
-    dropTarget.current = { path };
-  };
+    if (!parentId) {
+      // top-level append
+      newBlocks.push(newBlock);
+      updateBlocks(newBlocks);
+      return;
+    }
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    if (isLocked) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (!draggedBlockId.current || !dropTarget.current) return;
-
-    const sourcePath = findBlockPath(draggedBlockId.current, blocks);
-    const targetPath = dropTarget.current.path;
-
-    if (!sourcePath || JSON.stringify(sourcePath) === JSON.stringify(targetPath)) return;
-
-    let newBlocks = JSON.parse(JSON.stringify(blocks));
-
-    // Get source block and remove it
-    let sourceParent: any = { children: [newBlocks] };
-    let temp: any = newBlocks;
-    for (let i = 0; i < sourcePath.length - 1; i++) {
-      temp = temp[sourcePath[i]];
-      if (temp.type === 'layout') {
-        const [col, item] = sourcePath.slice(i + 1)
-        sourceParent = temp.children[col]
-        i++
-      } else {
-        sourceParent = temp
+    // try find parent block
+    const parentFound = findParentArrayAndIndex(newBlocks, parentId);
+    if (parentFound && parentFound.parentArray[parentFound.index].type === "layout") {
+      // parentFound identifies the layout block index; get layout block reference
+      const layoutBlock = parentFound.parentArray[parentFound.index] as Block;
+      if (layoutBlock.type === "layout") {
+        // ensure children exist
+        layoutBlock.children = layoutBlock.children || [[]];
+        const ci = typeof colIndex === "number" && colIndex >= 0 && colIndex < layoutBlock.children.length ? colIndex : 0;
+        layoutBlock.children[ci].push(newBlock);
+        updateBlocks(newBlocks);
+        return;
       }
     }
-    if (!Array.isArray(sourceParent)) sourceParent = newBlocks;
-    const [draggedBlock] = sourceParent.splice(sourcePath[sourcePath.length - 1], 1);
 
+    // fallback: append to top-level
+    newBlocks.push(newBlock);
+    updateBlocks(newBlocks);
+  };
 
-    // Add to target
-    let targetParent: any = { children: [newBlocks] };
-    temp = newBlocks
-    for (let i = 0; i < targetPath.length - 1; i++) {
-      temp = temp[targetPath[i]];
-      if (temp.type === 'layout') {
-        const [col, item] = targetPath.slice(i + 1)
-        targetParent = temp.children[col]
-        i++
-      } else {
-        targetParent = temp
-      }
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    if (isLocked) return;
+    draggedBlockId.current = id;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+  };
+
+  const handleDropOnBlock = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
+    if (isLocked) return;
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData("text/plain") || draggedBlockId.current;
+    if (!dragId || dragId === targetId) return;
+
+    const newBlocks = cloneBlocks(blocks);
+    const source = findParentArrayAndIndex(newBlocks, dragId);
+    const target = findParentArrayAndIndex(newBlocks, targetId);
+
+    if (!source || !target) return;
+
+    // Remove source
+    const [moved] = source.parentArray.splice(source.index, 1);
+    // If source parent was before target parent and they are the same array and source index < target index,
+    // adjust target index because array has shifted after removal
+    let insertIndex = target.index;
+    if (source.parentArray === target.parentArray && source.index < target.index) {
+      insertIndex = target.index - 1;
     }
-    if (!Array.isArray(targetParent)) targetParent = newBlocks;
-    targetParent.splice(targetPath[targetPath.length - 1], 0, draggedBlock);
+    // Insert before target
+    target.parentArray.splice(insertIndex, 0, moved);
 
     updateBlocks(newBlocks);
     draggedBlockId.current = null;
-    dropTarget.current = null;
+  };
+
+  // allow dropping on empty area (append)
+  const handleDropOnContainer = (e: React.DragEvent<HTMLDivElement>) => {
+    if (isLocked) return;
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData("text/plain") || draggedBlockId.current;
+    if (!dragId) return;
+    const newBlocks = cloneBlocks(blocks);
+    const source = findParentArrayAndIndex(newBlocks, dragId);
+    if (!source) return;
+    const [moved] = source.parentArray.splice(source.index, 1);
+    newBlocks.push(moved);
+    updateBlocks(newBlocks);
+    draggedBlockId.current = null;
   };
 
   return (
     <div className="report-section" id={sectionId}>
-      <EditableField id={sectionTitleKey} value={data[sectionTitleKey] || ''} onChange={updateField} className="mb-3" tag="h2" disabled={isLocked} />
+      <EditableField id={sectionTitleKey} value={(data as any)[sectionTitleKey] || ""} onChange={updateField} className="mb-3" tag="h2" disabled={isLocked} />
 
-      <div onDrop={handleDrop}>
-        {blocks.map((block, index) => (
+      <div onDragOver={(e) => e.preventDefault()} onDrop={handleDropOnContainer}>
+        {blocks.map((block) => (
           <BlockRenderer
             key={block.id}
             block={block}
-            path={[index]}
             isLocked={isLocked}
             updateBlock={updateBlock}
             deleteBlock={deleteBlock}
-            handleDragStart={handleDragStart}
-            handleDragOver={handleDragOver}
             addBlock={addBlock}
+            handleDragStart={handleDragStart}
+            handleDropOnBlock={handleDropOnBlock}
           />
         ))}
       </div>
 
       <AddBlockButton isLocked={isLocked} addBlock={addBlock} />
+
+      {/* Inline styles for handles */}
+      {typeof window !== "undefined" && (() => {
+        const styleId = "custom-section-styles";
+        if (!document.getElementById(styleId)) {
+          const styleSheet = document.createElement("style");
+          styleSheet.id = styleId;
+          styleSheet.innerText = `
+            .block-toolbar {
+              position: absolute;
+              top: -10px;
+              right: 8px;
+              z-index: 10;
+              opacity: 0;
+              transition: opacity 0.18s ease, transform 0.18s ease;
+              transform: translateY(4px);
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              background-color: var(--background);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              padding: 4px;
+              box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+            }
+            .block-container:hover .block-toolbar {
+              opacity: 1;
+              transform: translateY(0);
+            }
+            .block-toolbar .drag-handle-block {
+              cursor: move;
+              color: var(--muted-foreground);
+              padding: 4px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .block-toolbar .drag-handle-block:hover {
+              color: var(--foreground);
+            }
+            .block-toolbar .delete-handle-block {
+              height: 1.75rem;
+              width: 1.75rem;
+              color: var(--muted-foreground);
+            }
+            .block-toolbar .delete-handle-block:hover {
+              background-color: rgba(220,38,38,0.06);
+              color: rgb(220,38,38);
+            }
+            .editable-table td {
+              outline: none;
+            }
+            .editable-table td:focus {
+              background-color: rgba(59,130,246,0.06);
+            }
+          `;
+          document.head.appendChild(styleSheet);
+        }
+        return null;
+      })()}
     </div>
   );
-}
-
-// Add some extra CSS for the new block editor handles
-if (typeof window !== 'undefined') {
-  const styleId = 'custom-section-styles';
-  if (!document.getElementById(styleId)) {
-    const styleSheet = document.createElement("style");
-    styleSheet.id = styleId;
-    styleSheet.innerText = `
-          .block-toolbar {
-            position: absolute;
-            top: -12px;
-            right: 8px;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.2s, transform 0.2s;
-            transform: translateY(4px);
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            background-color: hsl(var(--background));
-            border: 1px solid hsl(var(--border));
-            border-radius: var(--radius);
-            padding: 2px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-          }
-          .block-container:hover .block-toolbar {
-            opacity: 1;
-            transform: translateY(0);
-          }
-          .block-toolbar .drag-handle-block {
-            cursor: move;
-            color: hsl(var(--muted-foreground));
-            padding: 4px;
-          }
-          .block-toolbar .drag-handle-block:hover {
-              color: hsl(var(--foreground));
-          }
-          .block-toolbar .delete-handle-block {
-            height: 1.75rem;
-            width: 1.75rem;
-            color: hsl(var(--muted-foreground));
-          }
-          .block-toolbar .delete-handle-block:hover {
-              background-color: hsl(var(--destructive) / 0.1);
-              color: hsl(var(--destructive));
-          }
-          .editable-table td {
-              outline: none;
-          }
-          .editable-table td:focus {
-              background-color: hsl(var(--accent));
-          }
-        `;
-    document.head.appendChild(styleSheet);
-  }
 }

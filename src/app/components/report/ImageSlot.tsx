@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -93,7 +92,8 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
   return (
     <div
       className={cn(
-        "chart-slot", 
+        "relative min-h-[120px] w-full overflow-hidden border rounded-lg flex items-center justify-center", 
+         
         className, 
         isDragging && 'drag-over', 
         !src && !disabled && 'cursor-pointer',
@@ -114,12 +114,29 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
       />
       
       {src ? (
-        <Image src={src} alt={`Chart for ${id}`} fill style={{ objectFit: 'contain' }} />
+        <Image src={src} alt={`Chart for ${id}`} fill style={{ objectFit: 'cover' }}  />
       ) : (
-        <div className="text-center text-muted-foreground text-sm p-4">
+        <div className="text-center text-muted-foreground text-sm p-4  flex items-center justify-center h-full">
           {hint}
         </div>
       )}
+      {/* {src ? (
+  <img
+    src={src}
+    alt={`Image ${id}`}
+    style={{
+      width: "100%",
+       height: "100%",
+      display: "block",
+      objectFit: "contain"
+    }}
+  />
+) : (
+  <div className="text-center text-muted-foreground text-sm p-4  flex items-center justify-center h-full">
+    {hint}
+  </div>
+)} */}
+
       
       {!disabled && (
         <div className="chart-tools opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -136,3 +153,4 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     </div>
   );
 }
+

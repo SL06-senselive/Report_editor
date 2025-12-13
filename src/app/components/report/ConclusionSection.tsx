@@ -9,6 +9,7 @@ type ConclusionSectionProps = {
   updateField: (id: string, value: string) => void;
 };
 
+
 export default function ConclusionSection({ data, updateField }: ConclusionSectionProps) {
   return (
     <div className="report-section" id="conclusion">

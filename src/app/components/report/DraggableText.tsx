@@ -52,7 +52,7 @@ export default function DraggableText({ overlay, isSelected, onSelect, onDrag, c
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
-  
+   
   return (
     <div
       ref={ref}

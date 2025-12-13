@@ -15,7 +15,6 @@ type KpiCardProps = {
   updateField: (id: string, value: string) => void;
   isTitleEditable?: boolean;
 };
-
 const KpiCard: React.FC<KpiCardProps> = ({
   titleId,
   title,
@@ -27,6 +26,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
   updateField,
   isTitleEditable = true
 }) => {
+  
   return (
     <div className="kpi">
       <div className="title">
@@ -44,6 +44,5 @@ const KpiCard: React.FC<KpiCardProps> = ({
       </div>
     </div>
   );
-};
-
+};                    
 export default KpiCard;

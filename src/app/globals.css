@@ -394,3 +394,28 @@
 .report-header .lucide-calendar {
   color: #1e293b !important;
 }
+
+/* Force images to stay inside page and avoid cut */
+.report-section img,
+.chart-card img {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+}
+
+/* Force sections not to split across pages */
+.report-section,
+.chart-card,
+.kpi {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+/* A4 friendly layout */
+.a4-page {
+  width: 794px;          /* A4 width px */
+  min-height: 1123px;    /* A4 height px */
+  margin: 0 auto;
+  page-break-after: always;
+}

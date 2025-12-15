@@ -106,6 +106,7 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     >
       <input
         type="file"
+      
         ref={fileInputRef}
         onChange={onFileChange}
         accept="image/*"
@@ -116,7 +117,7 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
       {src ? (
         <Image src={src} alt={`Chart for ${id}`} fill style={{ objectFit: 'cover' }}  />
       ) : (
-        <div className="text-center text-muted-foreground text-sm p-4  flex items-center justify-center h-full">
+        <div className="text-center text-muted-foreground text-sm p-4  flex items-center justify-center object-cover h-full">
           {hint}
         </div>
       )}
@@ -153,4 +154,5 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     </div>
   );
 }
+
 

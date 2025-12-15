@@ -68,7 +68,8 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       // Fix images
       clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
         img.style.maxWidth = "100%";
-        img.style.height = "1123px";
+       // img.style.height = "1123px";
+       img.style.height = "auto";
          img.style.maxWidth = "100%";    
         img.style.display = "block";
         img.style.objectFit = "contain";
@@ -76,6 +77,20 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
         img.style.breakInside = "avoid";
         img.style.margin = "10px auto";
       });
+
+ // ✅ WAIT FOR IMAGES TO LOAD (MAIN FIX)
+      const images = clone.querySelectorAll("img");
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) return resolve(true);
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(true);
+            })
+        )
+      );
+
 
       // Add print styles
       const style = document.createElement("style");

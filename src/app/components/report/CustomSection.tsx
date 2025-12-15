@@ -398,7 +398,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
           <div className="p-3 border rounded-lg bg-primary/5">
             {!isLocked && (
               <div className="flex items-center gap-2 mb-2">
-                <label className="text-sm font-medium">Columns:</label>
+                <label className="text-sm font-medium leading-none">Columns:</label>
                 <select
                   value={block.layout}
                   onChange={(e) => {
@@ -408,7 +408,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
                     const newChildren = Array.from({ length: numCols }, (_, i) => block.children?.[i] || []);
                     updateBlock(block.id, { layout: newLayout, children: newChildren });
                   }}
-                  className="border rounded-md px-2 py-1 text-sm bg-background"
+                  className="border rounded-md px-2 py-1 text-sm bg-background h-8"
                 >
                   <option value="1-col">1</option>
                   <option value="2-col">2</option>

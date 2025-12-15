@@ -75,7 +75,7 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
         img.style.objectFit = "contain";
         img.style.pageBreakInside = "avoid";
         img.style.breakInside = "avoid";
-        img.style.margin = "10px auto";
+        img.style.margin = "0px auto";
       });
 
  // ✅ WAIT FOR IMAGES TO LOAD (MAIN FIX)

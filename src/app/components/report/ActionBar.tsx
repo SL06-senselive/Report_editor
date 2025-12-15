@@ -30,7 +30,7 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       return;
     }
 
-    
+
     toast({ title: "Generating PDF...", description: "Please wait..." });
 
     try {
@@ -150,12 +150,14 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
         .set({
           margin: 0,
           filename: "Report.pdf",
+
           image: { type: "jpeg", quality: 1.0 },
           html2canvas: {
             scale: 3,
             scrollY: 0,
             scrollX: 0,
             useCORS: true,
+              allowTaint: true, 
             backgroundColor: "#ffffff",
           },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },

@@ -88,6 +88,7 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
         fileInputRef.current.value = "";
     }
   };
+  
 
   return (
     <div
@@ -148,8 +149,6 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     {hint}
   </div>
 )} */}
-
-      
       {!disabled && (
         <div className="chart-tools opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <Button size="sm" variant="outline" className="btn bg-background" onClick={handleUploadClick}>
@@ -165,5 +164,4 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
     </div>
   );
 }
-
 

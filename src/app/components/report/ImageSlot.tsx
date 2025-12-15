@@ -114,13 +114,24 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
         disabled={disabled}
       />
       
-      {src ? (
+      {/* {src ? (
         <Image src={src} alt={`Chart for ${id}`} fill style={{ objectFit: 'cover' }}  />
       ) : (
         <div className="text-center text-muted-foreground text-sm p-4  flex items-center justify-center object-cover h-full">
           {hint}
         </div>
-      )}
+      )} */}
+      {src ? (
+  <img
+    src={src}
+    alt={`Chart for ${id}`}
+    className="absolute inset-0 w-full h-full object-cover"
+  />
+) : (
+  <div className="text-center text-muted-foreground text-sm p-4 flex items-center justify-center h-full">
+    {hint}
+  </div>
+)}
       {/* {src ? (
   <img
     src={src}

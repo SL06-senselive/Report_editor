@@ -30,6 +30,7 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       return;
     }
 
+    
     toast({ title: "Generating PDF...", description: "Please wait..." });
 
     try {

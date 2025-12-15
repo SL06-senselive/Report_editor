@@ -79,14 +79,44 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       });
 
  // ✅ WAIT FOR IMAGES TO LOAD (MAIN FIX)
-      const images = clone.querySelectorAll("img");
+      // const images = clone.querySelectorAll("img");
+      // await Promise.all(
+      //   Array.from(images).map(
+      //     (img) =>
+      //       new Promise((resolve) => {
+      //         if (img.complete) return resolve(true);
+      //         img.onload = () => resolve(true);
+      //         img.onerror = () => resolve(true);
+      //       })
+      //   )
+      // );
+
+        // Convert all images to base64
+      const images = clone.querySelectorAll<HTMLImageElement>("img");
       await Promise.all(
         Array.from(images).map(
           (img) =>
-            new Promise((resolve) => {
-              if (img.complete) return resolve(true);
-              img.onload = () => resolve(true);
-              img.onerror = () => resolve(true);
+            new Promise<void>(async (resolve) => {
+              try {
+                const response = await fetch(img.src, { mode: "cors" });
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  img.src = reader.result as string;
+                  img.style.maxWidth = "100%";
+                  img.style.height = "auto";
+                  img.style.display = "block";
+                  img.style.objectFit = "contain";
+                  img.style.pageBreakInside = "avoid";
+                  img.style.breakInside = "avoid";
+                  img.style.margin = "0px auto";
+                  resolve();
+                };
+                reader.readAsDataURL(blob);
+              } catch {
+                // If image fails, skip it
+                resolve();
+              }
             })
         )
       );

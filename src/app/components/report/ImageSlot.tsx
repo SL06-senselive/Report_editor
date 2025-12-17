@@ -6,6 +6,7 @@ import { Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
+
 type ImageSlotProps = {
   id: string;
   src: string | null;
@@ -88,7 +89,7 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
         fileInputRef.current.value = "";
     }
   };
-  
+
 
   return (
     <div
@@ -101,20 +102,20 @@ export default function ImageSlot({ id, src, onUpload, className, hint = "Drop i
         disabled && 'cursor-not-allowed bg-secondary/50'
       )}
       onDragOver={onDragOver}
+
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onClick={handleClick}
     >
       <input
         type="file"
-      
         ref={fileInputRef}
         onChange={onFileChange}
         accept="image/*"
         className="hidden"
         disabled={disabled}
       />
-      
+ 
       {/* {src ? (
         <Image src={src} alt={`Chart for ${id}`} fill style={{ objectFit: 'cover' }}  />
       ) : (

@@ -10,7 +10,6 @@ type ActionBarProps = {
   reportRef: React.RefObject<HTMLDivElement>;
 };
 
-
 export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
   const isGenerating = useRef(false);
   const { toast } = useToast();
@@ -30,24 +29,35 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
       return;
     }
 
-
     toast({ title: "Generating PDF...", description: "Please wait..." });
 
     try {
       const html2pdf = (await import("html2pdf.js")).default;
 
-      // Cast cloned node as HTMLElement
+      /* ---------------------------------------
+         CLONE REPORT
+      ---------------------------------------- */
       const clone = element.cloneNode(true) as HTMLElement;
 
-      // Remove unwanted elements
-      clone.querySelectorAll<HTMLElement>(`
-        .section-controls, .add-section-container, .action-bar,
-        [data-hide-print], button, .drag-handle, .popover-content
-      `).forEach((el) => el.remove());
+      clone
+        .querySelectorAll<HTMLElement>(
+          `.section-controls,
+           .add-section-container,
+           .action-bar,
+           [data-hide-print],
+           button,
+           .drag-handle,
+           .popover-content`
+        )
+        .forEach((el) => el.remove());
 
-
-      // Replace inputs and textareas with spans
-      clone.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
+      /* ---------------------------------------
+         INPUT → TEXT
+      ---------------------------------------- */
+      clone
+        .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+          "input, textarea"
+        )
         .forEach((input) => {
           const span = document.createElement("span");
           span.textContent = input.value || input.placeholder || "";
@@ -57,43 +67,29 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
           input.parentNode?.replaceChild(span, input);
         });
 
-      // Wrap content in A4 sized container
+      /* ---------------------------------------
+         WRAPPER (A4 WIDTH)
+      ---------------------------------------- */
       const wrapper = document.createElement("div");
-      wrapper.style.width = "794px";
-      wrapper.style.minHeight = "auto";
+      wrapper.style.width = "794px"; // A4 @ 96dpi
+      wrapper.style.background = "#ffffff";
       wrapper.style.margin = "0 auto";
-      wrapper.style.background = "#fff";
       wrapper.style.padding = "0";
       wrapper.appendChild(clone);
 
-      // Fix images
-      clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-        img.style.maxWidth = "100%";
-       // img.style.height = "1123px";
-       img.style.height = "auto";
-         img.style.maxWidth = "100%";    
-        img.style.display = "block";
-        img.style.objectFit = "contain";
-        img.style.pageBreakInside = "avoid";
-        img.style.breakInside = "avoid";
-        img.style.margin = "0px auto";
-      });
+      /* ---------------------------------------
+         ATTACH TO DOM (CRITICAL)
+      ---------------------------------------- */
+      wrapper.style.position = "absolute";
+      wrapper.style.left = "-10000px";
+      wrapper.style.top = "0";
+      document.body.appendChild(wrapper);
 
- // ✅ WAIT FOR IMAGES TO LOAD (MAIN FIX)
-      // const images = clone.querySelectorAll("img");
-      // await Promise.all(
-      //   Array.from(images).map(
-      //     (img) =>
-      //       new Promise((resolve) => {
-      //         if (img.complete) return resolve(true);
-      //         img.onload = () => resolve(true);
-      //         img.onerror = () => resolve(true);
-      //       })
-      //   )
-      // );
-
-        // Convert all images to base64
+      /* ---------------------------------------
+         IMAGE FIX + BASE64 CONVERSION
+      ---------------------------------------- */
       const images = clone.querySelectorAll<HTMLImageElement>("img");
+
       await Promise.all(
         Array.from(images).map(
           (img) =>
@@ -101,74 +97,74 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
               try {
                 const response = await fetch(img.src, { mode: "cors" });
                 const blob = await response.blob();
+
                 const reader = new FileReader();
                 reader.onloadend = () => {
                   img.src = reader.result as string;
+                  img.style.display = "block";
                   img.style.maxWidth = "100%";
                   img.style.height = "auto";
-                  img.style.display = "block";
                   img.style.objectFit = "contain";
                   img.style.pageBreakInside = "avoid";
                   img.style.breakInside = "avoid";
-                  img.style.margin = "0px auto";
+                  img.style.margin = "0 auto";
                   resolve();
                 };
                 reader.readAsDataURL(blob);
               } catch {
-                // If image fails, skip it
                 resolve();
               }
             })
         )
       );
 
+      /* ---------------------------------------
+         WAIT FOR FINAL PAINT
+      ---------------------------------------- */
+      await new Promise(requestAnimationFrame);
 
-      // Add print styles
-      const style = document.createElement("style");
-      style.textContent = `
-        img, 
-        .image-block, 
-        .img-container {
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-
-        .section, 
-        .content-block {
-          page-break-inside: auto !important;
-          break-inside: auto !important;
-        }
-
-        .page-break {
-          page-break-before: always !important;
-        }
-      `;
-      wrapper.appendChild(style);
-
-      // Generate PDF
+      /* ---------------------------------------
+         GENERATE PDF
+      ---------------------------------------- */
       await html2pdf()
         .set({
           margin: 0,
           filename: "Report.pdf",
 
-          image: { type: "jpeg", quality: 1.0 },
+          image: { type: "png", quality: 1.0 }, // ✅ PNG = SHARP
           html2canvas: {
-            scale: 3,
-            scrollY: 0,
-            scrollX: 0,
+            scale: 3, // ✅ HIGH DPI
             useCORS: true,
-              allowTaint: true, 
+            allowTaint: true,
             backgroundColor: "#ffffff",
+            scrollX: 0,
+            scrollY: 0,
           },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          jsPDF: {
+            unit: "mm",
+            format: "a4",
+            orientation: "portrait",
+          },
         })
         .from(wrapper)
         .save();
 
-      toast({ title: "Download Complete", description: "Your PDF is ready!" });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Error", description: "PDF failed.", variant: "destructive" });
+      toast({
+        title: "Download Complete",
+        description: "Your PDF is ready!",
+      });
+
+      /* ---------------------------------------
+         CLEANUP
+      ---------------------------------------- */
+      document.body.removeChild(wrapper);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "PDF generation failed.",
+        variant: "destructive",
+      });
     } finally {
       isGenerating.current = false;
     }
@@ -193,4 +189,3 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
     </div>
   );
 }
-

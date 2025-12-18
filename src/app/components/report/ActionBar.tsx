@@ -29,31 +29,30 @@
 //       return;
 //     }
 
-//     toast({ title: "Generating PDF...", description: "Please wait..." });
+//     toast({ title: "Generating PDF...", description: "Please wait" });
 
 //     try {
 //       const html2pdf = (await import("html2pdf.js")).default;
 
-//       /* ---------------------------------------
+//       /* ------------------------------
 //          CLONE REPORT
-//       ---------------------------------------- */
+//       ------------------------------- */
 //       const clone = element.cloneNode(true) as HTMLElement;
 
+//       /* Remove UI-only elements */
 //       clone
 //         .querySelectorAll<HTMLElement>(
-//           `.section-controls,
-//            .add-section-container,
-//            .action-bar,
-//            [data-hide-print],
-//            button,
-//            .drag-handle,
-//            .popover-content`
+//           `
+//           .action-bar,
+//           .section-controls,
+//           .add-section-container,
+//           button,
+//           [data-hide-print]
+//         `
 //         )
 //         .forEach((el) => el.remove());
 
-//       /* ---------------------------------------
-//          INPUT → TEXT
-//       ---------------------------------------- */
+//       /* Convert inputs to text */
 //       clone
 //         .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
 //           "input, textarea"
@@ -64,105 +63,57 @@
 //           span.style.cssText = window.getComputedStyle(input).cssText;
 //           span.style.border = "none";
 //           span.style.background = "transparent";
-//           input.parentNode?.replaceChild(span, input);
+//           input.replaceWith(span);
 //         });
 
-//       /* ---------------------------------------
-//          WRAPPER (A4 WIDTH)
-//       ---------------------------------------- */
-//       const wrapper = document.createElement("div");
-//       wrapper.style.width = "794px"; // A4 @ 96dpi
-//       wrapper.style.background = "#ffffff";
-//       wrapper.style.margin = "0 auto";
-//       wrapper.style.padding = "0";
-//       wrapper.appendChild(clone);
+//       /* Ensure images render cleanly */
+//       clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+//         img.style.display = "block";
+//         img.style.maxWidth = "100%";
+//         img.style.height = "auto";
+//         img.style.objectFit = "contain";
+//         img.style.pageBreakInside = "avoid";
+//       });
 
-//       /* ---------------------------------------
-//          ATTACH TO DOM (CRITICAL)
-//       ---------------------------------------- */
-//       wrapper.style.position = "absolute";
-//       wrapper.style.left = "-10000px";
-//       wrapper.style.top = "0";
-//       document.body.appendChild(wrapper);
-
-//       /* ---------------------------------------
-//          IMAGE FIX + BASE64 CONVERSION
-//       ---------------------------------------- */
-//       const images = clone.querySelectorAll<HTMLImageElement>("img");
-
-//       await Promise.all(
-//         Array.from(images).map(
-//           (img) =>
-//             new Promise<void>(async (resolve) => {
-//               try {
-//                 const response = await fetch(img.src, { mode: "cors" });
-//                 const blob = await response.blob();
-
-//                 const reader = new FileReader();
-//                 reader.onloadend = () => {
-//                   img.src = reader.result as string;
-//                   img.style.display = "block";
-//                   img.style.maxWidth = "100%";
-//                   img.style.height = "auto";
-//                   img.style.objectFit = "contain";
-//                   img.style.pageBreakInside = "avoid";
-//                   img.style.breakInside = "avoid";
-//                   img.style.margin = "0 auto";
-//                   resolve();
-//                 };
-//                 reader.readAsDataURL(blob);
-//               } catch {
-//                 resolve();
-//               }
-//             })
-//         )
-//       );
-
-//       /* ---------------------------------------
-//          WAIT FOR FINAL PAINT
-//       ---------------------------------------- */
-//       await new Promise(requestAnimationFrame);
-
-//       /* ---------------------------------------
+//       /* ------------------------------
 //          GENERATE PDF
-//       ---------------------------------------- */
+//       ------------------------------- */
 //       await html2pdf()
 //         .set({
-//           margin: 0,
 //           filename: "Report.pdf",
+//           margin: 0,
 
-//           image: { type: "png", quality: 1.0 }, // ✅ PNG = SHARP
+//           image: {
+//             type: "png", // ✅ PNG = sharp
+//             quality: 1,
+//           },
+
 //           html2canvas: {
-//             scale: 3, // ✅ HIGH DPI
+//             scale: 2.5, // ✅ clear but stable
 //             useCORS: true,
-//             allowTaint: true,
 //             backgroundColor: "#ffffff",
 //             scrollX: 0,
 //             scrollY: 0,
 //           },
+
 //           jsPDF: {
 //             unit: "mm",
 //             format: "a4",
 //             orientation: "portrait",
 //           },
 //         })
-//         .from(wrapper)
+//         .from(clone)
 //         .save();
 
 //       toast({
-//         title: "Download Complete",
-//         description: "Your PDF is ready!",
+//         title: "Download complete",
+//         description: "PDF generated successfully",
 //       });
-
-//       /* ---------------------------------------
-//          CLEANUP
-//       ---------------------------------------- */
-//       document.body.removeChild(wrapper);
 //     } catch (error) {
 //       console.error(error);
 //       toast({
 //         title: "Error",
-//         description: "PDF generation failed.",
+//         description: "PDF generation failed",
 //         variant: "destructive",
 //       });
 //     } finally {
@@ -171,25 +122,26 @@
 //   };
 
 //   return (
-//     <div className="action-bar flex justify-end gap-3 p-4 border-t bg-white shadow-sm">
+//     <div className="action-bar flex justify-end gap-3 p-4 border-t bg-white">
 //       <Button
 //         variant="outline"
 //         onClick={onReset}
 //         className="flex items-center gap-2"
 //       >
-//         <RotateCcw size={16} /> Reset
+//         <RotateCcw size={16} />
+//         Reset
 //       </Button>
 
 //       <Button
 //         onClick={handleDownload}
-//         className="bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+//         className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
 //       >
-//         <Download size={16} /> Download PDF
+//         <Download size={16} />
+//         Download PDF
 //       </Button>
 //     </div>
 //   );
 // }
-
 
 "use client";
 
@@ -234,22 +186,18 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
 
       /* Remove UI-only elements */
       clone
-        .querySelectorAll<HTMLElement>(
-          `
+        .querySelectorAll<HTMLElement>(`
           .action-bar,
           .section-controls,
           .add-section-container,
           button,
           [data-hide-print]
-        `
-        )
+        `)
         .forEach((el) => el.remove());
 
-      /* Convert inputs to text */
+      /* Convert inputs to plain text */
       clone
-        .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-          "input, textarea"
-        )
+        .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
         .forEach((input) => {
           const span = document.createElement("span");
           span.textContent = input.value || input.placeholder || "";
@@ -259,14 +207,29 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
           input.replaceWith(span);
         });
 
-      /* Ensure images render cleanly */
-      clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+      /* Fix images for PDF */
+      const images = clone.querySelectorAll<HTMLImageElement>("img");
+      images.forEach((img) => {
+        img.setAttribute("crossorigin", "anonymous");
+        img.loading = "eager";
         img.style.display = "block";
         img.style.maxWidth = "100%";
         img.style.height = "auto";
         img.style.objectFit = "contain";
         img.style.pageBreakInside = "avoid";
       });
+
+      /* ⏳ WAIT FOR IMAGES TO LOAD */
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) return resolve(true);
+              img.onload = resolve;
+              img.onerror = resolve;
+            })
+        )
+      );
 
       /* ------------------------------
          GENERATE PDF
@@ -277,13 +240,14 @@ export default function ActionBar({ onReset, reportRef }: ActionBarProps) {
           margin: 0,
 
           image: {
-            type: "png", // ✅ PNG = sharp
+            type: "png",
             quality: 1,
           },
 
           html2canvas: {
-            scale: 2.5, // ✅ clear but stable
+            scale: 2.5,
             useCORS: true,
+            allowTaint: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0,
